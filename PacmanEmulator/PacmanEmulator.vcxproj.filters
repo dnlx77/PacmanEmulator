@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{29ba4442-731f-400d-a292-e314663aad95}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Core">
+      <UniqueIdentifier>{60e07c74-b725-4db1-8c3b-286b0b6dd602}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\CPU">
+      <UniqueIdentifier>{d3ae5673-98da-413f-8ff3-02513cbca594}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Memory">
+      <UniqueIdentifier>{5f2588b1-5638-42bb-99ba-d725f3edb4b9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Video">
+      <UniqueIdentifier>{0bd3ebaa-7ef5-45d8-b66e-225f0fc89226}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Input">
+      <UniqueIdentifier>{432b0dff-dd07-452a-8b2d-e69f81e9123e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{6de20bdc-d707-45f4-8a29-75b1b8db19f3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\Core">
+      <UniqueIdentifier>{7884e38e-ccfc-4380-bb06-3c83d1724df1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\CPU">
+      <UniqueIdentifier>{d29c41ba-b5e7-48ba-9cfb-f6d1138b8e9e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\Memory">
+      <UniqueIdentifier>{61e8604f-d0b3-4d4f-901e-4c0eac485c5a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\Video">
+      <UniqueIdentifier>{25d67928-e0b0-43a4-8980-73520ecd5f5e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\Input">
+      <UniqueIdentifier>{387ddbd6-6c78-4390-b926-b0535b47cab6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Core\main.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Core\PacmanEmulator.cpp">
+      <Filter>src\Core</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\Core\PacmanEmulator.h">
+      <Filter>include\Core</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

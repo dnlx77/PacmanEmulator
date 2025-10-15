@@ -1,4 +1,5 @@
 #include "Core/PacmanEmulator.h"
+#include "Memory/MemoryBus.h"
 #include <iostream>
 
 PacmanEmulator::PacmanEmulator()
@@ -25,8 +26,9 @@ bool PacmanEmulator::Initialize()
     );
     m_window->setFramerateLimit(60);
 
-    // TODO: Inizializza MemoryBus
-    // m_memory = std::make_unique<MemoryBus>();
+    // Inizializza MemoryBus
+    m_memory = std::make_unique<MemoryBus>();
+    m_memory->Initialize();
 
     // TODO: Inizializza CPU Z80
     // m_cpu = std::make_unique<Z80>(m_memory.get());
@@ -42,10 +44,15 @@ bool PacmanEmulator::LoadROM(const std::string &romPath)
 {
     std::cout << "PacmanEmulator: Caricamento ROM da " << romPath << std::endl;
 
-    // TODO: Implementare caricamento ROM
-    // Per ora ritorna true
+    // Caricamento ROM
+    std::cout << "PacmanEmulator: Caricamento Rom da " << romPath << std::endl;
 
-    std::cout << "PacmanEmulator: ROM caricata (placeholder)" << std::endl;
+    if (!m_memory->LoadRom(romPath)) {
+        std::cerr << "Errore nel caricamento della ROM!" << std::endl;
+        return false;
+    }
+
+    std::cout << "PacmanEmulator: ROM caricata con successo!" << std::endl;
     return true;
 }
 

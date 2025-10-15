@@ -4,8 +4,8 @@
 #include <memory>
 #include <string>
 
-// Forward declarations (le useremo dopo)
-// class MemoryBus;
+class MemoryBus;
+// // Forward declarations (le useremo dopo)
 // class Z80;
 // class VideoController;
 
@@ -32,8 +32,8 @@ public:
     void Reset();
 
 private:
+    std::unique_ptr<MemoryBus> m_memory;
     // Componenti dell'emulatore (commentiamo per ora, li aggiungeremo dopo)
-    // std::unique_ptr<MemoryBus> m_memory;
     // std::unique_ptr<Z80> m_cpu;
     // std::unique_ptr<VideoController> m_video;
 

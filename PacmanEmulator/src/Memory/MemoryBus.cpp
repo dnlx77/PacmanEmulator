@@ -1,0 +1,97 @@
+#include "Memory/MemoryBus.h"
+#include <fstream>
+#include <iostream>
+
+MemoryBus::MemoryBus() : m_romLoaded(false)
+{
+}
+
+MemoryBus::~MemoryBus()
+{
+}
+
+uint8_t MemoryBus::Read(uint16_t address)
+{
+	// ROM: read-only
+	if (address <= 0x3FFF) return m_rom[address];
+
+	// Video RAM: 0x4000 - 0x43FF
+	if (address <= 0x43FF) return m_VRam[address - 0x4000];
+
+	// Color RAM: 0x4400 - 0x47FF
+	if (address <= 0x47FF) return m_CRam[address - 0x4400];
+
+	// RAM: 0x4800 - 0x4FFF (con mirroring)
+	if (address <= 0x4FFF) return m_ram[(address - 0x4800) % 0x0400];
+
+	// Sprite RAM: 0x5000 - 0x50FF
+	if (address <= 0x50FF) return m_SRam[address - 0x5000];
+
+	// Unmapped
+	return 0xFF;
+}
+
+void MemoryBus::Write(uint16_t address, uint8_t value)
+{
+	// ROM: read-only
+	if (address <= 0x3FFF) return;
+
+	// Video RAM: 0x4000 - 0x43FF
+	if (address <= 0x43FF) { m_VRam[address - 0x4000] = value; return; }
+
+	// Color RAM: 0x4400 - 0x47FF
+	if (address <= 0x47FF) { m_CRam[address - 0x4400] = value; return; }
+
+	// RAM: 0x4800 - 0x4FFF (con mirroring)
+	if (address <= 0x4FFF) { m_ram[(address - 0x4800) % 0x0400] = value; return; }
+
+	// Sprite RAM: 0x5000 - 0x50FF
+	if (address <= 0x50FF) { m_SRam[address - 0x5000] = value; return; }
+}
+
+void MemoryBus::Initialize() {
+	m_rom.fill(0);
+	m_VRam.fill(0);
+	m_CRam.fill(0);
+	m_ram.fill(0);
+	m_SRam.fill(0);
+}
+
+bool MemoryBus::LoadRom(const std::string &filename)
+{
+    std::ifstream file(filename, std::ios::binary);
+
+    if (!file.is_open()) {
+        std::cerr << "Errore: impossibile aprire " << filename << std::endl;
+        return false;
+    }
+
+    // Ottieni dimensione
+    file.seekg(0, std::ios::end);
+    size_t fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    std::cout << "Dimensione file: " << fileSize << " bytes" << std::endl;
+
+    // Verifica dimensione
+    if (fileSize > 0x4000) {
+        std::cerr << "Errore: ROM troppo grande! Max 16KB" << std::endl;
+        file.close();
+        return false;
+    }
+
+    // Leggi dati
+    file.read(reinterpret_cast<char *>(m_rom.data()), fileSize);
+
+    if (!file) {
+        std::cerr << "Errore durante la lettura!" << std::endl;
+        file.close();
+        return false;
+    }
+
+    file.close();
+    m_romLoaded = true;
+
+    std::cout << "ROM caricata con successo: " << filename << std::endl;
+    return true;
+}

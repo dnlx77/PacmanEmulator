@@ -45,10 +45,16 @@
     <ClCompile Include="src\Core\PacmanEmulator.cpp">
       <Filter>src\Core</Filter>
     </ClCompile>
+    <ClCompile Include="src\Memory\MemoryBus.cpp">
+      <Filter>src\Memory</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Core\PacmanEmulator.h">
       <Filter>include\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Memory\MemoryBus.h">
+      <Filter>include\Memory</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

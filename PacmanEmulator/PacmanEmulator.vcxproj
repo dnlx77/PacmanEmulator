@@ -149,10 +149,12 @@ sfml-system.lib;%(AdditionalDependencies)</AdditionalDependencies>
   <ItemGroup>
     <ClCompile Include="src\Core\main.cpp" />
     <ClCompile Include="src\Core\PacmanEmulator.cpp" />
+    <ClCompile Include="src\CPU\Z80.cpp" />
     <ClCompile Include="src\Memory\MemoryBus.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Core\PacmanEmulator.h" />
+    <ClInclude Include="include\CPU\Z80.h" />
     <ClInclude Include="include\Memory\MemoryBus.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

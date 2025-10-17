@@ -48,6 +48,9 @@
     <ClCompile Include="src\Memory\MemoryBus.cpp">
       <Filter>src\Memory</Filter>
     </ClCompile>
+    <ClCompile Include="src\CPU\Z80.cpp">
+      <Filter>src\CPU</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Core\PacmanEmulator.h">
@@ -55,6 +58,9 @@
     </ClInclude>
     <ClInclude Include="include\Memory\MemoryBus.h">
       <Filter>include\Memory</Filter>
+    </ClInclude>
+    <ClInclude Include="include\CPU\Z80.h">
+      <Filter>include\CPU</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

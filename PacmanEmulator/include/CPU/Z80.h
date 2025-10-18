@@ -47,9 +47,62 @@ private:
 	// Opcodes
 	void OP_NotImplemented();
 	void OP_NOP();
+
+	// Opcodes handlers - INC
 	void OP_INC_A();
+	void OP_INC_B();
+	void OP_INC_C();
+	void OP_INC_D();
+	void OP_INC_E();
+	void OP_INC_H();
+	void OP_INC_L();
+
+	// Opcodes handlers - DEC
+	void OP_DEC_A();
+	void OP_DEC_B();
+	void OP_DEC_C();
+	void OP_DEC_D();
+	void OP_DEC_E();
+	void OP_DEC_H();
+	void OP_DEC_L();
+
+	// Opcodes handlers - LD r, n
 	void OP_LD_A_n();
+	void OP_LD_B_n();
+	void OP_LD_C_n();
+	void OP_LD_D_n();
+	void OP_LD_E_n();
+	void OP_LD_H_n();
+	void OP_LD_L_n();
+
+	// Opcodes handelers . ADD A, r
+	void OP_ADD_A_A();
+	void OP_ADD_A_B();
+	void OP_ADD_A_C();
+	void OP_ADD_A_D();
+	void OP_ADD_A_E();
+	void OP_ADD_A_H();
+	void OP_ADD_A_L();
+
+
+	// Opcodes handelers . SUB A, r
+	void OP_SUB_A_A();
+	void OP_SUB_A_B();
+	void OP_SUB_A_C();
+	void OP_SUB_A_D();
+	void OP_SUB_A_E();
+	void OP_SUB_A_H();
+	void OP_SUB_A_L();
+
 	void OP_LD_B_C();
+
+	// Helper functions per operazioni comuni
+	void INC_r(uint8_t &reg);					// Incremento 8-bit
+	void DEC_r(uint8_t &reg);					// Decremento 8-bit
+	void LD_r_n(uint8_t &reg);					// Load immediate
+	void LD_r_r(uint8_t &dest, uint8_t src);	// Load register to register
+	void ADD_A_r(uint8_t value);				// Addizione
+	void SUB_A_r(uint8_t value);				// Sottrazione
 
 public:
 	Z80(MemoryBus *memory);

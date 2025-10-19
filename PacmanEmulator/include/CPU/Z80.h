@@ -38,6 +38,9 @@ private:
 	uint64_t m_totalCycles;
 	int m_cyclesLastInstruction;
 
+	// Register mapping array
+	uint8_t *m_registerMap[8];
+
 	// Opcode table
 	using OpcodeFunction = void (Z80::*)();
 	OpcodeFunction m_opcodeTable[256];
@@ -75,7 +78,7 @@ private:
 	void OP_LD_H_n();
 	void OP_LD_L_n();
 
-	// Opcodes handelers . ADD A, r
+	// Opcodes handelers - ADD A, r
 	void OP_ADD_A_A();
 	void OP_ADD_A_B();
 	void OP_ADD_A_C();
@@ -84,8 +87,7 @@ private:
 	void OP_ADD_A_H();
 	void OP_ADD_A_L();
 
-
-	// Opcodes handelers . SUB A, r
+	// Opcodes handelers - SUB A, r
 	void OP_SUB_A_A();
 	void OP_SUB_A_B();
 	void OP_SUB_A_C();
@@ -94,7 +96,11 @@ private:
 	void OP_SUB_A_H();
 	void OP_SUB_A_L();
 
-	void OP_LD_B_C();
+	//Opcode handler unico per LD r, r'
+	void OP_LD_r_r();
+
+	//Opcode HALT
+	void OP_HALT();
 
 	// Helper functions per operazioni comuni
 	void INC_r(uint8_t &reg);					// Incremento 8-bit

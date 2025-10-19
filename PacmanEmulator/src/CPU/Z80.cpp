@@ -3,6 +3,25 @@
 #include <stdexcept>
 #include <algorithm>
 
+Z80::Z80(MemoryBus *memory) : m_memory(memory) {
+    if (!memory) {
+        throw std::invalid_argument("Memory pointer cannot be null!");
+    }
+    Reset();
+
+    // inizializza register map
+    m_registerMap[0] = &BC.high; // B
+    m_registerMap[1] = &BC.low;  // C
+    m_registerMap[2] = &DE.high; // D
+    m_registerMap[3] = &DE.low;  // E
+    m_registerMap[4] = &HL.high; // H
+    m_registerMap[5] = &HL.low;  // L
+    m_registerMap[6] = nullptr;  // (HL) - non usato direttamente
+    m_registerMap[7] = &A;       // A
+
+    InitOpcodeTable();
+}
+
 void Z80::InitOpcodeTable() {
     // Riempi tutto con "non implementato"
     for (int i = 0; i < 256; i++) {
@@ -40,25 +59,27 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0x2E] = &Z80::OP_LD_L_n;
 
     // ADD A,r opcodes
-    m_opcodeTable[0x87] = &Z80::OP_ADD_A_A;
     m_opcodeTable[0x80] = &Z80::OP_ADD_A_B;
     m_opcodeTable[0x81] = &Z80::OP_ADD_A_C;
     m_opcodeTable[0x82] = &Z80::OP_ADD_A_D;
     m_opcodeTable[0x83] = &Z80::OP_ADD_A_E;
     m_opcodeTable[0x84] = &Z80::OP_ADD_A_H;
     m_opcodeTable[0x85] = &Z80::OP_ADD_A_L;
+    m_opcodeTable[0x87] = &Z80::OP_ADD_A_A;
 
     // SUB A,r opcodes
-    m_opcodeTable[0x97] = &Z80::OP_SUB_A_A;
     m_opcodeTable[0x90] = &Z80::OP_SUB_A_B;
     m_opcodeTable[0x91] = &Z80::OP_SUB_A_C;
     m_opcodeTable[0x92] = &Z80::OP_SUB_A_D;
     m_opcodeTable[0x93] = &Z80::OP_SUB_A_E;
     m_opcodeTable[0x94] = &Z80::OP_SUB_A_H;
     m_opcodeTable[0x95] = &Z80::OP_SUB_A_L;
+    m_opcodeTable[0x97] = &Z80::OP_SUB_A_A;
 
-    // LD B, C
-    m_opcodeTable[0x41] = &Z80::OP_LD_B_C;
+    // LD r, r
+    for (int i = 0x40; i <= 0x7F; i++) {
+        m_opcodeTable[i] = &Z80::OP_LD_r_r;
+    }
 }
 
 void Z80::OP_NotImplemented() {
@@ -124,7 +145,39 @@ void Z80::OP_SUB_A_E() { SUB_A_r(DE.low); }
 void Z80::OP_SUB_A_H() { SUB_A_r(HL.high); }
 void Z80::OP_SUB_A_L() { SUB_A_r(HL.low); }
 
-void Z80::OP_LD_B_C() { LD_r_r(BC.high, BC.low); }
+void Z80::OP_LD_r_r()
+{
+    uint8_t opcode = m_memory->Read(PC - 1);
+    if (opcode == 0x76) {
+        OP_HALT();
+        return;
+    }
+
+    uint8_t dest = (opcode & 0x38) >> 3;
+    uint8_t src = opcode & 0x07;
+
+    if (src == 6) {
+        // Lettura dalla memoria
+        *m_registerMap[dest] = m_memory->Read(HL.pair);
+        m_cyclesLastInstruction = 7;
+    }
+    else if (dest == 6) {
+        // Scrittura in memoria
+        m_memory->Write(HL.pair, *m_registerMap[src]);
+        m_cyclesLastInstruction = 7;
+    }
+    else {
+        // Entrambi registri normali
+        *m_registerMap[dest] = *m_registerMap[src];
+        m_cyclesLastInstruction = 4;
+    }
+  }
+
+void Z80::OP_HALT()
+{
+    printf("Esecuzione opcode HALT");
+    m_cyclesLastInstruction = 4;
+}
 
 void Z80::INC_r(uint8_t &reg) {
     // Salva il valore originale per calcolare i flag
@@ -215,14 +268,6 @@ void Z80::SUB_A_r(uint8_t value) {
 
     m_cyclesLastInstruction = 4;
 }  
-
-Z80::Z80(MemoryBus *memory) : m_memory(memory) {
-	if (!memory) {
-		throw std::invalid_argument("Memory pointer cannot be null!");
-	}
-    Reset();
-    InitOpcodeTable();
-}
 
 void Z80::Reset() {
     // Program Counter

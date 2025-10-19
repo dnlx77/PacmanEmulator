@@ -80,6 +80,54 @@ void Z80::InitOpcodeTable() {
     for (int i = 0x40; i <= 0x7F; i++) {
         m_opcodeTable[i] = &Z80::OP_LD_r_r;
     }
+
+    // AND A,r opcodes
+    m_opcodeTable[0xA0] = &Z80::OP_AND_A_B;
+    m_opcodeTable[0xA1] = &Z80::OP_AND_A_C;
+    m_opcodeTable[0xA2] = &Z80::OP_AND_A_D;
+    m_opcodeTable[0xA3] = &Z80::OP_AND_A_E;
+    m_opcodeTable[0xA4] = &Z80::OP_AND_A_H;
+    m_opcodeTable[0xA5] = &Z80::OP_AND_A_L;
+    m_opcodeTable[0xA7] = &Z80::OP_AND_A_A;
+
+    // XOR A,r opcodes
+    m_opcodeTable[0xA8] = &Z80::OP_XOR_A_B;
+    m_opcodeTable[0xA9] = &Z80::OP_XOR_A_C;
+    m_opcodeTable[0xAA] = &Z80::OP_XOR_A_D;
+    m_opcodeTable[0xAB] = &Z80::OP_XOR_A_E;
+    m_opcodeTable[0xAC] = &Z80::OP_XOR_A_H;
+    m_opcodeTable[0xAD] = &Z80::OP_XOR_A_L;
+    m_opcodeTable[0xAF] = &Z80::OP_XOR_A_A;
+
+    // OR A,r opcodes
+    m_opcodeTable[0xB0] = &Z80::OP_OR_A_B;
+    m_opcodeTable[0xB1] = &Z80::OP_OR_A_C;
+    m_opcodeTable[0xB2] = &Z80::OP_OR_A_D;
+    m_opcodeTable[0xB3] = &Z80::OP_OR_A_E;
+    m_opcodeTable[0xB4] = &Z80::OP_OR_A_H;
+    m_opcodeTable[0xB5] = &Z80::OP_OR_A_L;
+    m_opcodeTable[0xB7] = &Z80::OP_OR_A_A;
+
+    // CP A,r opcodes
+    m_opcodeTable[0xB8] = &Z80::OP_CP_A_B;
+    m_opcodeTable[0xB9] = &Z80::OP_CP_A_C;
+    m_opcodeTable[0xBA] = &Z80::OP_CP_A_D;
+    m_opcodeTable[0xBB] = &Z80::OP_CP_A_E;
+    m_opcodeTable[0xBC] = &Z80::OP_CP_A_H;
+    m_opcodeTable[0xBD] = &Z80::OP_CP_A_L;
+    m_opcodeTable[0xBF] = &Z80::OP_CP_A_A;
+}
+
+bool Z80::CalculateParity(uint8_t value)
+{
+    int count = 0;
+    while (value) {
+        if (value & 0x01) {
+            count++;
+        }
+        value >>= 1;
+    }
+    return (count % 2) == 0;
 }
 
 void Z80::OP_NotImplemented() {
@@ -179,6 +227,42 @@ void Z80::OP_HALT()
     m_cyclesLastInstruction = 4;
 }
 
+// ========== AND A,r opcodes ==========
+void Z80::OP_AND_A_A() { AND_A_r(A); }
+void Z80::OP_AND_A_B() { AND_A_r(BC.high); }
+void Z80::OP_AND_A_C() { AND_A_r(BC.low); }
+void Z80::OP_AND_A_D() { AND_A_r(DE.high); }
+void Z80::OP_AND_A_E() { AND_A_r(DE.low); }
+void Z80::OP_AND_A_H() { AND_A_r(HL.high); }
+void Z80::OP_AND_A_L() { AND_A_r(HL.low); }
+
+// ========== XOR A,r opcodes ==========
+void Z80::OP_XOR_A_A() { XOR_A_r(A); }
+void Z80::OP_XOR_A_B() { XOR_A_r(BC.high); }
+void Z80::OP_XOR_A_C() { XOR_A_r(BC.low); }
+void Z80::OP_XOR_A_D() { XOR_A_r(DE.high); }
+void Z80::OP_XOR_A_E() { XOR_A_r(DE.low); }
+void Z80::OP_XOR_A_H() { XOR_A_r(HL.high); }
+void Z80::OP_XOR_A_L() { XOR_A_r(HL.low); }
+
+// ========== OR A,r opcodes ==========
+void Z80::OP_OR_A_A() { OR_A_r(A); }
+void Z80::OP_OR_A_B() { OR_A_r(BC.high); }
+void Z80::OP_OR_A_C() { OR_A_r(BC.low); }
+void Z80::OP_OR_A_D() { OR_A_r(DE.high); }
+void Z80::OP_OR_A_E() { OR_A_r(DE.low); }
+void Z80::OP_OR_A_H() { OR_A_r(HL.high); }
+void Z80::OP_OR_A_L() { OR_A_r(HL.low); }
+
+// ========== CP A,r opcodes ==========
+void Z80::OP_CP_A_A() { CP_A_r(A); }
+void Z80::OP_CP_A_B() { CP_A_r(BC.high); }
+void Z80::OP_CP_A_C() { CP_A_r(BC.low); }
+void Z80::OP_CP_A_D() { CP_A_r(DE.high); }
+void Z80::OP_CP_A_E() { CP_A_r(DE.low); }
+void Z80::OP_CP_A_H() { CP_A_r(HL.high); }
+void Z80::OP_CP_A_L() { CP_A_r(HL.low); }
+
 void Z80::INC_r(uint8_t &reg) {
     // Salva il valore originale per calcolare i flag
     uint8_t oldValue = reg;
@@ -267,7 +351,58 @@ void Z80::SUB_A_r(uint8_t value) {
     SetFlag(FLAG_N, true);
 
     m_cyclesLastInstruction = 4;
-}  
+}
+
+void Z80::AND_A_r(uint8_t value)
+{
+    A &= value;
+
+    SetFlag(FLAG_Z, A == 0x00);
+    SetFlag(FLAG_S, (A & 0x80) != 0);
+    SetFlag(FLAG_PV, CalculateParity(A));
+    SetFlag(FLAG_H, true);
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, false);
+
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OR_A_r(uint8_t value)
+{
+    A |= value;
+
+    SetFlag(FLAG_Z, A == 0x00);
+    SetFlag(FLAG_S, (A & 0x80) != 0);
+    SetFlag(FLAG_PV, CalculateParity(A));
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, false);
+
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::XOR_A_r(uint8_t value)
+{
+    A ^= value;
+
+    SetFlag(FLAG_Z, A == 0x00);
+    SetFlag(FLAG_S, (A & 0x80) != 0);
+    SetFlag(FLAG_PV, CalculateParity(A));
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, false);
+    
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::CP_A_r(uint8_t value)
+{
+    uint8_t oldA = A;
+    SUB_A_r(value);
+    A = oldA;
+
+    m_cyclesLastInstruction = 4;
+}
 
 void Z80::Reset() {
     // Program Counter

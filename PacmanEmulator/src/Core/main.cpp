@@ -71,7 +71,7 @@ int main() {
         std::cout << "After LD A,0x42 / LD B,0x12 / LD C,0x34:" << std::endl;
         PrintRegisters(cpu);
         std::cout << "Expected: A=0x42, BC=0x1234" << std::endl;
-        std::cout << (cpu.GetA() == 0x42 && cpu.GetBC() == 0x1234 ? "✅ PASS" : "❌ FAIL") << std::endl << std::endl;
+        std::cout << (cpu.GetA() == 0x42 && cpu.GetBC() == 0x1234 ? "PASS" : "FAIL") << std::endl << std::endl;
 
         // ========== TEST 2: LD r,r' ==========
         std::cout << "--- TEST 2: LD r,r' (Register Copy) ---" << std::endl;
@@ -84,7 +84,7 @@ int main() {
         std::cout << "After LD A,B / LD B,C:" << std::endl;
         PrintRegisters(cpu);
         std::cout << "Expected: A=0x12, BC=0x3434" << std::endl;
-        std::cout << (cpu.GetA() == 0x12 && cpu.GetBC() == 0x3434 ? "✅ PASS" : "❌ FAIL") << std::endl << std::endl;
+        std::cout << (cpu.GetA() == 0x12 && cpu.GetBC() == 0x3434 ? "PASS" : "FAIL") << std::endl << std::endl;
 
         // ========== TEST 3: INC con Flag ==========
         std::cout << "--- TEST 3: INC A con Overflow ---" << std::endl;
@@ -103,7 +103,7 @@ int main() {
             << " S=" << cpu.GetFlag(0x80)
             << " PV=" << cpu.GetFlag(0x04) << " (Overflow)" << std::endl;
         std::cout << "Expected: A=0x80, S=1, PV=1 (overflow)" << std::endl;
-        std::cout << (cpu.GetA() == 0x80 && cpu.GetFlag(0x80) && cpu.GetFlag(0x04) ? "✅ PASS" : "❌ FAIL") << std::endl << std::endl;
+        std::cout << (cpu.GetA() == 0x80 && cpu.GetFlag(0x80) && cpu.GetFlag(0x04) ? "PASS" : "FAIL") << std::endl << std::endl;
 
         // ========== TEST 4: ADD con Carry ==========
         std::cout << "--- TEST 4: ADD A,r con Carry ---" << std::endl;
@@ -124,7 +124,7 @@ int main() {
         std::cout << "Flags: Z=" << cpu.GetFlag(0x40)
             << " C=" << cpu.GetFlag(0x01) << " (Carry)" << std::endl;
         std::cout << "Expected: A=0x01, C=1 (carry)" << std::endl;
-        std::cout << (cpu.GetA() == 0x01 && cpu.GetFlag(0x01) ? "✅ PASS" : "❌ FAIL") << std::endl << std::endl;
+        std::cout << (cpu.GetA() == 0x01 && cpu.GetFlag(0x01) ? "PASS" : "FAIL") << std::endl << std::endl;
 
         // ========== TEST 5: Memory Access LD A,(HL) ==========
         std::cout << "--- TEST 5: LD A,(HL) - Memory Read ---" << std::endl;
@@ -146,7 +146,7 @@ int main() {
         PrintRegisters(cpu);
         std::cout << "A=0x" << std::hex << (int)cpu.GetA() << std::dec
             << " (should be 0xAB)" << std::endl;
-        std::cout << (cpu.GetA() == 0xAB ? "✅ PASS" : "❌ FAIL") << std::endl << std::endl;
+        std::cout << (cpu.GetA() == 0xAB ? "PASS" : "FAIL") << std::endl << std::endl;
 
         // ========== TEST 6: Memory Write LD (HL),A ==========
         std::cout << "--- TEST 6: LD (HL),r - Memory Write ---" << std::endl;
@@ -161,7 +161,7 @@ int main() {
         std::cout << "After LD A,0xCD / LD (HL),A:" << std::endl;
         std::cout << "Memory[0x4900]=0x" << std::hex << (int)memValue << std::dec
             << " (should be 0xCD)" << std::endl;
-        std::cout << (memValue == 0xCD ? "✅ PASS" : "❌ FAIL") << std::endl << std::endl;
+        std::cout << (memValue == 0xCD ? "PASS" : "FAIL") << std::endl << std::endl;
 
         // ========== TEST 7: SUB con Zero Flag ==========
         std::cout << "--- TEST 7: SUB A,r con Zero Flag ---" << std::endl;
@@ -179,14 +179,14 @@ int main() {
         PrintRegisters(cpu);
         std::cout << "Flags: Z=" << cpu.GetFlag(0x40) << " (Zero)" << std::endl;
         std::cout << "Expected: A=0x00, Z=1" << std::endl;
-        std::cout << (cpu.GetA() == 0x00 && cpu.GetFlag(0x40) ? "✅ PASS" : "❌ FAIL") << std::endl << std::endl;
+        std::cout << (cpu.GetA() == 0x00 && cpu.GetFlag(0x40) ? "PASS" : "FAIL") << std::endl << std::endl;
 
         std::cout << "=== TUTTI I TEST COMPLETATI ===" << std::endl;
         std::cout << "Total cycles executed: " << cpu.GetTotalCycles() << std::endl;
 
     }
     catch (const std::exception &e) {
-        std::cerr << "❌ Errore: " << e.what() << std::endl;
+        std::cerr << "Errore: " << e.what() << std::endl;
         return 1;
     }
 

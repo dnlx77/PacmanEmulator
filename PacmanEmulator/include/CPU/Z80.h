@@ -47,6 +47,9 @@ private:
 
 	void InitOpcodeTable();
 
+	// Helper per calcolo parità
+	bool CalculateParity(uint8_t value);
+
 	// Opcodes
 	void OP_NotImplemented();
 	void OP_NOP();
@@ -99,6 +102,42 @@ private:
 	//Opcode handler unico per LD r, r'
 	void OP_LD_r_r();
 
+	// Opcode handlers - AND A,r
+	void OP_AND_A_A(); 
+	void OP_AND_A_B(); 
+	void OP_AND_A_C(); 
+	void OP_AND_A_D(); 
+	void OP_AND_A_E(); 
+	void OP_AND_A_H(); 
+	void OP_AND_A_L(); 
+
+	// Opcode handlers - XOR A,r
+	void OP_XOR_A_A();
+	void OP_XOR_A_B();
+	void OP_XOR_A_C();
+	void OP_XOR_A_D();
+	void OP_XOR_A_E();
+	void OP_XOR_A_H();
+	void OP_XOR_A_L();
+
+	// Opcode handlers - OR A,r
+	void OP_OR_A_A();
+	void OP_OR_A_B();
+	void OP_OR_A_C();
+	void OP_OR_A_D();
+	void OP_OR_A_E();
+	void OP_OR_A_H();
+	void OP_OR_A_L();
+
+	// Opcode handlers - CP A,r
+	void OP_CP_A_A();
+	void OP_CP_A_B();
+	void OP_CP_A_C();
+	void OP_CP_A_D();
+	void OP_CP_A_E();
+	void OP_CP_A_H();
+	void OP_CP_A_L();
+
 	//Opcode HALT
 	void OP_HALT();
 
@@ -109,6 +148,10 @@ private:
 	void LD_r_r(uint8_t &dest, uint8_t src);	// Load register to register
 	void ADD_A_r(uint8_t value);				// Addizione
 	void SUB_A_r(uint8_t value);				// Sottrazione
+	void AND_A_r(uint8_t value);				// AND
+	void OR_A_r(uint8_t value);					// OR
+	void XOR_A_r(uint8_t value);				// XOR
+	void CP_A_r(uint8_t value);					// Compare
 
 public:
 	Z80(MemoryBus *memory);

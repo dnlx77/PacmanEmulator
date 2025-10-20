@@ -1,5 +1,4 @@
 #include "CPU/Z80.h"
-
 #include <stdexcept>
 #include <algorithm>
 
@@ -116,6 +115,60 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0xBC] = &Z80::OP_CP_A_H;
     m_opcodeTable[0xBD] = &Z80::OP_CP_A_L;
     m_opcodeTable[0xBF] = &Z80::OP_CP_A_A;
+
+    // Jump assoluti
+    m_opcodeTable[0xC3] = &Z80::OP_JP_nn;
+    m_opcodeTable[0xCA] = &Z80::OP_JP_Z_nn;
+    m_opcodeTable[0xC2] = &Z80::OP_JP_NZ_nn;
+    m_opcodeTable[0xDA] = &Z80::OP_JP_C_nn;
+    m_opcodeTable[0xD2] = &Z80::OP_JP_NC_nn;
+
+    // Jump relativi
+    m_opcodeTable[0x18] = &Z80::OP_JR_e;
+    m_opcodeTable[0x28] = &Z80::OP_JR_Z_e;
+    m_opcodeTable[0x20] = &Z80::OP_JR_NZ_e;
+    m_opcodeTable[0x38] = &Z80::OP_JR_C_e;
+    m_opcodeTable[0x30] = &Z80::OP_JR_NC_e;
+
+    // Call/ret
+    m_opcodeTable[0xCD] = &Z80::OP_CALL_nn;
+    m_opcodeTable[0xCC] = &Z80::OP_CALL_Z_nn;
+    m_opcodeTable[0xC4] = &Z80::OP_CALL_NZ_nn;
+    m_opcodeTable[0xDC] = &Z80::OP_CALL_C_nn;
+    m_opcodeTable[0xD4] = &Z80::OP_CALL_NC_nn;
+    m_opcodeTable[0xC9] = &Z80::OP_RET;
+    m_opcodeTable[0xC8] = &Z80::OP_RET_Z;
+    m_opcodeTable[0xC0] = &Z80::OP_RET_NZ;
+    m_opcodeTable[0xD8] = &Z80::OP_RET_C;
+    m_opcodeTable[0xD0] = &Z80::OP_RET_NC;
+
+    // Push/Pop
+    m_opcodeTable[0xC5] = &Z80::OP_PUSH_BC;
+    m_opcodeTable[0xD5] = &Z80::OP_PUSH_DE;
+    m_opcodeTable[0xE5] = &Z80::OP_PUSH_HL;
+    m_opcodeTable[0xF5] = &Z80::OP_PUSH_AF;
+    m_opcodeTable[0xC1] = &Z80::OP_POP_BC;
+    m_opcodeTable[0xD1] = &Z80::OP_POP_DE;
+    m_opcodeTable[0xE1] = &Z80::OP_POP_HL;
+    m_opcodeTable[0xF1] = &Z80::OP_POP_AF;
+
+    // LD rr,nn
+    m_opcodeTable[0x01] = &Z80::OP_LD_BC_nn;
+    m_opcodeTable[0x11] = &Z80::OP_LD_DE_nn;
+    m_opcodeTable[0x21] = &Z80::OP_LD_HL_nn;
+    m_opcodeTable[0x31] = &Z80::OP_LD_SP_nn;
+
+    // INC rr
+    m_opcodeTable[0x03] = &Z80::OP_INC_BC;
+    m_opcodeTable[0x13] = &Z80::OP_INC_DE;
+    m_opcodeTable[0x23] = &Z80::OP_INC_HL;
+    m_opcodeTable[0x33] = &Z80::OP_INC_SP;
+
+    // DEC rr
+    m_opcodeTable[0x0B] = &Z80::OP_DEC_BC;
+    m_opcodeTable[0x1B] = &Z80::OP_DEC_DE;
+    m_opcodeTable[0x2B] = &Z80::OP_DEC_HL;
+    m_opcodeTable[0x3B] = &Z80::OP_DEC_SP;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -227,6 +280,43 @@ void Z80::OP_HALT()
     m_cyclesLastInstruction = 4;
 }
 
+void Z80::OP_JP_nn()
+{
+    // Leggi dalla memoria l'indirizzo della call
+    uint8_t low = m_memory->Read(PC++);
+    uint8_t high = m_memory->Read(PC++);
+
+    PC = (high << 8) | low;
+
+    m_cyclesLastInstruction = 10;
+}
+
+void Z80::OP_JP_Z_nn() { JP_nn_conditional(FLAG_Z, true); }
+
+void Z80::OP_JP_NZ_nn() { JP_nn_conditional(FLAG_Z, false); }
+
+void Z80::OP_JP_C_nn() { JP_nn_conditional(FLAG_C, true); }
+
+void Z80::OP_JP_NC_nn() { JP_nn_conditional(FLAG_C, false); }
+
+void Z80::OP_JR_e()
+{
+    uint8_t offset_unsigned = m_memory->Read(PC++);
+    int8_t offset = static_cast<int8_t>(offset_unsigned);
+
+    PC += offset;
+
+    m_cyclesLastInstruction = 12;
+}
+
+void Z80::OP_JR_Z_e() { JR_conditional(FLAG_Z, true); }
+
+void Z80::OP_JR_NZ_e() { JR_conditional(FLAG_Z, false); }
+
+void Z80::OP_JR_C_e() { JR_conditional(FLAG_C, true); }
+
+void Z80::OP_JR_NC_e() { JR_conditional(FLAG_C, false); }
+
 // ========== AND A,r opcodes ==========
 void Z80::OP_AND_A_A() { AND_A_r(A); }
 void Z80::OP_AND_A_B() { AND_A_r(BC.high); }
@@ -262,6 +352,98 @@ void Z80::OP_CP_A_D() { CP_A_r(DE.high); }
 void Z80::OP_CP_A_E() { CP_A_r(DE.low); }
 void Z80::OP_CP_A_H() { CP_A_r(HL.high); }
 void Z80::OP_CP_A_L() { CP_A_r(HL.low); }
+
+void Z80::OP_CALL_nn()
+{
+    // Leggi dalla memoria l'indirizzo della call
+    uint8_t low = m_memory->Read(PC++);
+    uint8_t high = m_memory->Read(PC++);
+
+    // Salvo sullo stack il valore attuale di PC
+    PUSH_16bit(PC);
+
+    //Imposto PC con l'istruzione da eseguire
+    PC = (high << 8) | low;
+
+    m_cyclesLastInstruction = 17;
+}
+
+void Z80::OP_CALL_Z_nn() { CALL_conditional(FLAG_Z, true); }
+
+void Z80::OP_CALL_NZ_nn() { CALL_conditional(FLAG_Z, false); }
+
+void Z80::OP_CALL_C_nn() { CALL_conditional(FLAG_C, true); }
+
+void Z80::OP_CALL_NC_nn() { CALL_conditional(FLAG_C, false); }
+
+void Z80::OP_RET()
+{
+    PC = POP_16bit();
+
+    m_cyclesLastInstruction = 10;
+}
+
+void Z80::OP_RET_Z() { RET_conditional(FLAG_Z, true); }
+
+void Z80::OP_RET_NZ() { RET_conditional(FLAG_Z, false); }
+
+void Z80::OP_RET_C() { RET_conditional(FLAG_C, true); }
+
+void Z80::OP_RET_NC() { RET_conditional(FLAG_C, false); }
+
+void Z80::OP_PUSH_BC() { PUSH_rr(&BC); }
+
+void Z80::OP_PUSH_DE() { PUSH_rr(&DE); }
+
+void Z80::OP_PUSH_HL() { PUSH_rr(&HL); }
+
+void Z80::OP_PUSH_AF()
+{
+    uint16_t af = (A << 8) | F;
+    PUSH_16bit(af);
+
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_POP_BC() { POP_rr(&BC); }
+
+void Z80::OP_POP_DE() { POP_rr(&DE); }
+
+void Z80::OP_POP_HL() { POP_rr(&HL); }
+
+void Z80::OP_POP_AF()
+{
+    uint16_t af = POP_16bit();
+    
+    A = (af & 0xFF00) >> 8;
+    F = af & 0xFF;
+
+    m_cyclesLastInstruction = 10;
+}
+
+void Z80::OP_LD_BC_nn() { LD_rr_nn(BC.pair); }
+
+void Z80::OP_LD_DE_nn() { LD_rr_nn(DE.pair); }
+
+void Z80::OP_LD_HL_nn() { LD_rr_nn(HL.pair); }
+
+void Z80::OP_LD_SP_nn() { LD_rr_nn(SP); }
+
+void Z80::OP_INC_BC() { INC_rr(BC.pair); }
+
+void Z80::OP_INC_DE() { INC_rr(DE.pair); }
+
+void Z80::OP_INC_HL() { INC_rr(HL.pair); }
+
+void Z80::OP_INC_SP() { INC_rr(SP); }
+
+void Z80::OP_DEC_BC() { DEC_rr(BC.pair); }
+
+void Z80::OP_DEC_DE() { DEC_rr(DE.pair); }
+
+void Z80::OP_DEC_HL() { DEC_rr(HL.pair); }
+
+void Z80::OP_DEC_SP() { DEC_rr(SP); }
 
 void Z80::INC_r(uint8_t &reg) {
     // Salva il valore originale per calcolare i flag
@@ -402,6 +584,127 @@ void Z80::CP_A_r(uint8_t value)
     A = oldA;
 
     m_cyclesLastInstruction = 4;
+}
+
+void Z80::RET_conditional(uint8_t flag, bool condition)
+{
+    bool flagValue = GetFlag(flag);
+
+    if (flagValue == condition) {
+        PC = POP_16bit();
+        m_cyclesLastInstruction = 11;
+    }
+    else {
+        m_cyclesLastInstruction = 5;
+    }
+}
+
+void Z80::CALL_conditional(uint8_t flag, bool condition)
+{
+    bool flagValue = GetFlag(flag);
+
+    // Leggi dalla memoria l'indirizzo della call
+    uint8_t low = m_memory->Read(PC++);
+    uint8_t high = m_memory->Read(PC++);
+    
+    if (flagValue == condition) {
+        // Salvo sullo stack il valore attuale di PC
+        PUSH_16bit(PC);
+
+        //Imposto PC con l'istruzione da eseguire
+        PC = (high << 8) | low;
+
+        m_cyclesLastInstruction = 17;
+    }
+    else {
+        m_cyclesLastInstruction = 10;
+    }
+}
+
+void Z80::JP_nn_conditional(uint8_t flag, bool condition)
+{
+    bool flagValue = GetFlag(flag);
+
+    // Leggi dalla memoria l'indirizzo della call
+    uint8_t low = m_memory->Read(PC++);
+    uint8_t high = m_memory->Read(PC++);
+
+    if (flagValue == condition) {
+        PC = (high << 8) | low;
+    }
+
+    m_cyclesLastInstruction = 10;
+}
+
+void Z80::JR_conditional(uint8_t flag, bool condition)
+{
+    bool flagValue = GetFlag(flag);
+
+    uint8_t offset_unsigned = m_memory->Read(PC++);
+    int8_t offset = static_cast<int8_t>(offset_unsigned);
+
+    if (flagValue == condition) {
+        PC += offset;
+        m_cyclesLastInstruction = 12;
+    }
+    else {
+        m_cyclesLastInstruction = 7;
+    }
+}
+
+void Z80::PUSH_rr(RegisterPair const *reg)
+{
+    PUSH_16bit(reg->pair);
+
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::POP_rr(RegisterPair *reg)
+{
+    reg->pair = POP_16bit();
+
+    m_cyclesLastInstruction = 10;
+}
+
+void Z80::LD_rr_nn(uint16_t &reg)
+{
+    uint8_t low = m_memory->Read(PC++);
+    uint8_t high = m_memory->Read(PC++);
+    
+    reg = (high << 8) | low;
+
+    m_cyclesLastInstruction = 10;
+}
+
+void Z80::INC_rr(uint16_t &reg)
+{
+    reg++;
+
+    m_cyclesLastInstruction = 6;
+}
+
+void Z80::DEC_rr(uint16_t &reg)
+{
+    reg--;
+
+    m_cyclesLastInstruction = 6;
+}
+
+void Z80::PUSH_16bit(uint16_t value)
+{
+    uint8_t low = value & 0xFF;
+    uint8_t high = (value >> 8) & 0xFF;
+    m_memory->Write(--SP, high);
+    m_memory->Write(--SP, low);
+
+}
+
+uint16_t Z80::POP_16bit()
+{
+    uint8_t low = m_memory->Read(SP++);
+    uint8_t high = m_memory->Read(SP++);
+    uint16_t address = (high << 8) | low;
+    return address;
 }
 
 void Z80::Reset() {

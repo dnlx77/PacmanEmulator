@@ -141,17 +141,84 @@ private:
 	//Opcode HALT
 	void OP_HALT();
 
+	// Jump assoluti
+	void OP_JP_nn();
+	void OP_JP_Z_nn();
+	void OP_JP_NZ_nn();
+	void OP_JP_C_nn();
+	void OP_JP_NC_nn();
+
+	// Jump relativi
+	void OP_JR_e();
+	void OP_JR_Z_e();
+	void OP_JR_NZ_e();
+	void OP_JR_C_e();
+	void OP_JR_NC_e();
+
+	// Call/Ret
+	void OP_CALL_nn();
+	void OP_CALL_Z_nn();
+	void OP_CALL_NZ_nn();
+	void OP_CALL_C_nn();
+	void OP_CALL_NC_nn();
+	void OP_RET();
+	void OP_RET_Z();
+	void OP_RET_NZ();
+	void OP_RET_C();
+	void OP_RET_NC();
+
+	// Push/Pop
+	void OP_PUSH_BC();
+	void OP_PUSH_DE();
+	void OP_PUSH_HL();
+	void OP_PUSH_AF();
+	void OP_POP_BC();
+	void OP_POP_DE();
+	void OP_POP_HL();
+	void OP_POP_AF();
+
+	// LD rr,nn
+	void OP_LD_BC_nn();
+	void OP_LD_DE_nn();
+	void OP_LD_HL_nn();
+	void OP_LD_SP_nn();
+
+	// Inc rr
+	void OP_INC_BC();
+	void OP_INC_DE();
+	void OP_INC_HL();
+	void OP_INC_SP();
+
+	// Dec rr
+	void OP_DEC_BC();
+	void OP_DEC_DE();
+	void OP_DEC_HL();
+	void OP_DEC_SP();
+
 	// Helper functions per operazioni comuni
-	void INC_r(uint8_t &reg);					// Incremento 8-bit
-	void DEC_r(uint8_t &reg);					// Decremento 8-bit
-	void LD_r_n(uint8_t &reg);					// Load immediate
-	void LD_r_r(uint8_t &dest, uint8_t src);	// Load register to register
-	void ADD_A_r(uint8_t value);				// Addizione
-	void SUB_A_r(uint8_t value);				// Sottrazione
-	void AND_A_r(uint8_t value);				// AND
-	void OR_A_r(uint8_t value);					// OR
-	void XOR_A_r(uint8_t value);				// XOR
-	void CP_A_r(uint8_t value);					// Compare
+	void INC_r(uint8_t &reg);							  // Incremento 8-bit
+	void DEC_r(uint8_t &reg);							  // Decremento 8-bit
+	void LD_r_n(uint8_t &reg);							  // Load immediate
+	void LD_r_r(uint8_t &dest, uint8_t src);			  // Load register to register
+	void ADD_A_r(uint8_t value);						  // Addizione
+	void SUB_A_r(uint8_t value);						  // Sottrazione
+	void AND_A_r(uint8_t value);						  // AND
+	void OR_A_r(uint8_t value);							  // OR
+	void XOR_A_r(uint8_t value);						  // XOR
+	void CP_A_r(uint8_t value);							  // Compare
+	void RET_conditional(uint8_t flag, bool condition);   // Ret
+	void CALL_conditional(uint8_t flag, bool condition);  // Call
+	void JP_nn_conditional(uint8_t flag, bool condition); // Jump nn
+	void JR_conditional(uint8_t flag, bool condition);    // Jump e
+	void PUSH_rr(RegisterPair const *reg);				  // Push
+	void POP_rr(RegisterPair *reg);				          // Pop
+	void LD_rr_nn(uint16_t &reg);
+	void INC_rr(uint16_t & reg);
+	void DEC_rr(uint16_t &reg);
+
+	// Helper functions per stack
+	void PUSH_16bit(uint16_t value);
+	uint16_t POP_16bit();
 
 public:
 	Z80(MemoryBus *memory);

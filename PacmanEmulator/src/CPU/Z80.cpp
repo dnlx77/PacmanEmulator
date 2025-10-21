@@ -175,6 +175,23 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0x19] = &Z80::OP_ADD_HL_DE;
     m_opcodeTable[0x29] = &Z80::OP_ADD_HL_HL;
     m_opcodeTable[0x39] = &Z80::OP_ADD_HL_SP;
+
+    // LD Special
+    m_opcodeTable[0x0A] = &Z80::OP_LD_A_BC;
+    m_opcodeTable[0x1A] = &Z80::OP_LD_A_DE;
+    m_opcodeTable[0x02] = &Z80::OP_LD_BC_A;
+    m_opcodeTable[0x12] = &Z80::OP_LD_DE_A;
+    m_opcodeTable[0x3A] = &Z80::OP_LD_A_nn;
+    m_opcodeTable[0x32] = &Z80::OP_LD_nn_A;
+
+    // Operation Immediate
+    m_opcodeTable[0xC6] = &Z80::OP_ADD_n;
+    m_opcodeTable[0xD6] = &Z80::OP_SUB_n;
+    m_opcodeTable[0xE6] = &Z80::OP_AND_n;;
+    m_opcodeTable[0xEE] = &Z80::OP_XOR_n;;
+    m_opcodeTable[0xF6] = &Z80::OP_OR_n;;
+    m_opcodeTable[0xFE] = &Z80::OP_CP_n;;
+    m_opcodeTable[0x36] = &Z80::OP_LD_HL_n;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -459,6 +476,68 @@ void Z80::OP_ADD_HL_HL() { ADD_HL_rr(HL.pair); }
 
 void Z80::OP_ADD_HL_SP() { ADD_HL_rr(SP); }
 
+void Z80::OP_LD_A_BC() { LD_A_indirect(BC.pair); }
+
+void Z80::OP_LD_A_DE() { LD_A_indirect(DE.pair); } 
+
+void Z80::OP_LD_BC_A() { LD_indirect_A(BC.pair); }
+
+void Z80::OP_LD_DE_A() { LD_indirect_A(DE.pair); }
+
+void Z80::OP_LD_A_nn() { LD_A_addr(); }
+
+void Z80::OP_LD_nn_A() { LD_addr_A(); }
+
+void Z80::OP_ADD_n()
+{
+    uint8_t n = m_memory->Read(PC++);
+    ADD_A_r(n);
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_SUB_n()
+{
+    uint8_t n = m_memory->Read(PC++);
+    SUB_A_r(n);
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_AND_n()
+{
+    uint8_t n = m_memory->Read(PC++);
+    AND_A_r(n);
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_XOR_n()
+{
+    uint8_t n = m_memory->Read(PC++);
+    XOR_A_r(n);
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_OR_n()
+{
+    uint8_t n = m_memory->Read(PC++);
+    OR_A_r(n);
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_CP_n()
+{
+    uint8_t n = m_memory->Read(PC++);
+    CP_A_r(n);
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_LD_HL_n()
+{
+    uint8_t n = m_memory->Read(PC++);
+    m_memory->Write(HL.pair, n);
+
+    m_cyclesLastInstruction = 12;
+}
+
 void Z80::INC_r(uint8_t &reg) {
     // Salva il valore originale per calcolare i flag
     uint8_t oldValue = reg;
@@ -717,6 +796,40 @@ void Z80::ADD_HL_rr(uint16_t reg)
     SetFlag(FLAG_N, false);
 
     m_cyclesLastInstruction = 11;
+}
+
+void Z80::LD_A_indirect(uint16_t address)
+{
+    A = m_memory->Read(address);
+
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::LD_indirect_A(uint16_t address)
+{
+    m_memory->Write(address, A);
+
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::LD_A_addr()
+{
+    uint8_t low = m_memory->Read(PC++);
+    uint8_t high = m_memory->Read(PC++);
+
+    A = m_memory->Read((high << 8) | low);
+
+    m_cyclesLastInstruction = 10;
+}
+
+void Z80::LD_addr_A()
+{
+    uint8_t low = m_memory->Read(PC++);
+    uint8_t high = m_memory->Read(PC++);
+
+    m_memory->Write((high << 8) | low, A);
+
+    m_cyclesLastInstruction = 13;
 }
 
 void Z80::PUSH_16bit(uint16_t value)

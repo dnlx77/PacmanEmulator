@@ -201,6 +201,23 @@ private:
 	void OP_ADD_HL_HL();
 	void OP_ADD_HL_SP();
 
+	// LD Special
+	void OP_LD_A_BC();
+	void OP_LD_A_DE();
+	void OP_LD_BC_A();
+	void OP_LD_DE_A();
+	void OP_LD_A_nn();
+	void OP_LD_nn_A();
+
+	// Operation Immediate
+	void OP_ADD_n();
+	void OP_SUB_n();
+	void OP_AND_n();
+	void OP_XOR_n();
+	void OP_OR_n();
+	void OP_CP_n();
+	void OP_LD_HL_n();
+
 	// Helper functions per operazioni comuni
 	void INC_r(uint8_t &reg);							  // Incremento 8-bit
 	void DEC_r(uint8_t &reg);							  // Decremento 8-bit
@@ -222,6 +239,10 @@ private:
 	void INC_rr(uint16_t & reg);						  // Inc 16 bit
 	void DEC_rr(uint16_t &reg);							  // Dec 16 bit
 	void ADD_HL_rr(uint16_t reg);						  // ADD 16 bit
+	void LD_A_indirect(uint16_t address);				  // Load da memoria indirizzo registro
+	void LD_indirect_A(uint16_t address);				  // Store in memoria indirizzo registro
+	void LD_A_addr();									  // Load da memoria indirizzo istruzione
+	void LD_addr_A();									  // Store in memoria indirizzo istruzione
 
 	// Helper functions per stack
 	void PUSH_16bit(uint16_t value);

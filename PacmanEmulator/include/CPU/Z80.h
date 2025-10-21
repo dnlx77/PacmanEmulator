@@ -195,6 +195,12 @@ private:
 	void OP_DEC_HL();
 	void OP_DEC_SP();
 
+	// ADD HL, rr
+	void OP_ADD_HL_BC();
+	void OP_ADD_HL_DE();
+	void OP_ADD_HL_HL();
+	void OP_ADD_HL_SP();
+
 	// Helper functions per operazioni comuni
 	void INC_r(uint8_t &reg);							  // Incremento 8-bit
 	void DEC_r(uint8_t &reg);							  // Decremento 8-bit
@@ -212,9 +218,10 @@ private:
 	void JR_conditional(uint8_t flag, bool condition);    // Jump e
 	void PUSH_rr(RegisterPair const *reg);				  // Push
 	void POP_rr(RegisterPair *reg);				          // Pop
-	void LD_rr_nn(uint16_t &reg);
-	void INC_rr(uint16_t & reg);
-	void DEC_rr(uint16_t &reg);
+	void LD_rr_nn(uint16_t &reg);						  // Load 16 bit
+	void INC_rr(uint16_t & reg);						  // Inc 16 bit
+	void DEC_rr(uint16_t &reg);							  // Dec 16 bit
+	void ADD_HL_rr(uint16_t reg);						  // ADD 16 bit
 
 	// Helper functions per stack
 	void PUSH_16bit(uint16_t value);

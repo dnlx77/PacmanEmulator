@@ -169,6 +169,12 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0x1B] = &Z80::OP_DEC_DE;
     m_opcodeTable[0x2B] = &Z80::OP_DEC_HL;
     m_opcodeTable[0x3B] = &Z80::OP_DEC_SP;
+
+    // ADD hL, rr
+    m_opcodeTable[0x09] = &Z80::OP_ADD_HL_BC;
+    m_opcodeTable[0x19] = &Z80::OP_ADD_HL_DE;
+    m_opcodeTable[0x29] = &Z80::OP_ADD_HL_HL;
+    m_opcodeTable[0x39] = &Z80::OP_ADD_HL_SP;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -445,6 +451,14 @@ void Z80::OP_DEC_HL() { DEC_rr(HL.pair); }
 
 void Z80::OP_DEC_SP() { DEC_rr(SP); }
 
+void Z80::OP_ADD_HL_BC() { ADD_HL_rr(BC.pair); }
+
+void Z80::OP_ADD_HL_DE() { ADD_HL_rr(DE.pair); }
+
+void Z80::OP_ADD_HL_HL() { ADD_HL_rr(HL.pair); }
+
+void Z80::OP_ADD_HL_SP() { ADD_HL_rr(SP); }
+
 void Z80::INC_r(uint8_t &reg) {
     // Salva il valore originale per calcolare i flag
     uint8_t oldValue = reg;
@@ -688,6 +702,21 @@ void Z80::DEC_rr(uint16_t &reg)
     reg--;
 
     m_cyclesLastInstruction = 6;
+}
+
+void Z80::ADD_HL_rr(uint16_t reg)
+{
+    uint16_t oldHL = HL.pair;
+
+    uint32_t result = (HL.pair + reg);
+
+    HL.pair = result & 0xFFFF;
+
+    SetFlag(FLAG_C, result > 0xFFFF);
+    SetFlag(FLAG_H, ((oldHL & 0x0FFF) + (reg & 0x0FFF)) > 0x0FFF);
+    SetFlag(FLAG_N, false);
+
+    m_cyclesLastInstruction = 11;
 }
 
 void Z80::PUSH_16bit(uint16_t value)

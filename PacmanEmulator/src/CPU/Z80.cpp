@@ -214,6 +214,11 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0x9E] = &Z80::OP_SBC_A_HL;
     m_opcodeTable[0x9F] = &Z80::OP_SBC_A_A;
     m_opcodeTable[0xDE] = &Z80::OP_SBC_A_n;
+
+    // LD 16-bit
+    m_opcodeTable[0x2A] = &Z80::OP_LD_HL_pnn;
+    m_opcodeTable[0x22] = &Z80::OP_LD_pnn_HL;
+    m_opcodeTable[0xF9] = &Z80::OP_LD_SP_HL;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -558,6 +563,41 @@ void Z80::OP_SBC_A_n()
 {
     SBC_A_r(m_memory->Read(PC++));
     m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_LD_HL_pnn()
+{
+    uint8_t add_low = m_memory->Read(PC++);
+    uint8_t add_high = m_memory->Read(PC++);
+
+    uint16_t address = ((add_high << 8) | add_low);
+
+    uint8_t data_low = m_memory->Read(address++);
+    uint8_t data_high = m_memory->Read(address);
+
+    HL.pair = ((data_high << 8)  | data_low);
+
+    m_cyclesLastInstruction = 16;
+}
+
+void Z80::OP_LD_pnn_HL()
+{
+    uint8_t add_low = m_memory->Read(PC++);
+    uint8_t add_high = m_memory->Read(PC++);
+
+    uint16_t address = ((add_high << 8) | add_low);
+
+    m_memory->Write(address++, HL.low);
+    m_memory->Write(address, HL.high);
+
+    m_cyclesLastInstruction = 16;
+}
+
+void Z80::OP_LD_SP_HL()
+{
+    SP = HL.pair;
+
+    m_cyclesLastInstruction = 6;
 }
 
 void Z80::OP_AND_n()

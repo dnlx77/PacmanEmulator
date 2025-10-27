@@ -239,6 +239,11 @@ private:
 	void OP_SBC_A_HL();
 	void OP_SBC_A_A();
 	void OP_SBC_A_n();
+
+	// LD 16bit
+	void OP_LD_HL_pnn();
+	void OP_LD_pnn_HL();
+	void OP_LD_SP_HL();
 					  
 	// Helper functions per operazioni comuni
 	void INC_r(uint8_t &reg);							  // Incremento 8-bit

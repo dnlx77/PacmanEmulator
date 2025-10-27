@@ -218,6 +218,28 @@ private:
 	void OP_CP_n();
 	void OP_LD_HL_n();
 
+	// ADC A, r
+	void OP_ADC_A_B();
+	void OP_ADC_A_C();
+	void OP_ADC_A_D();
+	void OP_ADC_A_E();
+	void OP_ADC_A_H();
+	void OP_ADC_A_L();
+	void OP_ADC_A_HL();
+	void OP_ADC_A_A(); 
+	void OP_ADC_A_n();
+
+	// SBC A, r
+	void OP_SBC_A_B();
+	void OP_SBC_A_C();
+	void OP_SBC_A_D();
+	void OP_SBC_A_E();
+	void OP_SBC_A_H();
+	void OP_SBC_A_L();
+	void OP_SBC_A_HL();
+	void OP_SBC_A_A();
+	void OP_SBC_A_n();
+					  
 	// Helper functions per operazioni comuni
 	void INC_r(uint8_t &reg);							  // Incremento 8-bit
 	void DEC_r(uint8_t &reg);							  // Decremento 8-bit
@@ -243,6 +265,8 @@ private:
 	void LD_indirect_A(uint16_t address);				  // Store in memoria indirizzo registro
 	void LD_A_addr();									  // Load da memoria indirizzo istruzione
 	void LD_addr_A();									  // Store in memoria indirizzo istruzione
+	void ADC_A_r(uint8_t value);						  // Somma con carry
+	void SBC_A_r(uint8_t value);						  // Sottrazione con carry
 
 	// Helper functions per stack
 	void PUSH_16bit(uint16_t value);

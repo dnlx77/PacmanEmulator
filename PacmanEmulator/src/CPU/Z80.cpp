@@ -187,11 +187,33 @@ void Z80::InitOpcodeTable() {
     // Operation Immediate
     m_opcodeTable[0xC6] = &Z80::OP_ADD_n;
     m_opcodeTable[0xD6] = &Z80::OP_SUB_n;
-    m_opcodeTable[0xE6] = &Z80::OP_AND_n;;
-    m_opcodeTable[0xEE] = &Z80::OP_XOR_n;;
-    m_opcodeTable[0xF6] = &Z80::OP_OR_n;;
-    m_opcodeTable[0xFE] = &Z80::OP_CP_n;;
+    m_opcodeTable[0xE6] = &Z80::OP_AND_n;
+    m_opcodeTable[0xEE] = &Z80::OP_XOR_n;
+    m_opcodeTable[0xF6] = &Z80::OP_OR_n;
+    m_opcodeTable[0xFE] = &Z80::OP_CP_n;
     m_opcodeTable[0x36] = &Z80::OP_LD_HL_n;
+
+    // ADC A,r
+    m_opcodeTable[0x88] = &Z80::OP_ADC_A_B;
+    m_opcodeTable[0x89] = &Z80::OP_ADC_A_C;
+    m_opcodeTable[0x8A] = &Z80::OP_ADC_A_D;
+    m_opcodeTable[0x8B] = &Z80::OP_ADC_A_E;
+    m_opcodeTable[0x8C] = &Z80::OP_ADC_A_H;
+    m_opcodeTable[0x8D] = &Z80::OP_ADC_A_L;
+    m_opcodeTable[0x8E] = &Z80::OP_ADC_A_HL;
+    m_opcodeTable[0x8F] = &Z80::OP_ADC_A_A;
+    m_opcodeTable[0xCE] = &Z80::OP_ADC_A_n;
+
+    // SBC A,r
+    m_opcodeTable[0x98] = &Z80::OP_SBC_A_B;
+    m_opcodeTable[0x99] = &Z80::OP_SBC_A_C;
+    m_opcodeTable[0x9A] = &Z80::OP_SBC_A_D;
+    m_opcodeTable[0x9B] = &Z80::OP_SBC_A_E;
+    m_opcodeTable[0x9C] = &Z80::OP_SBC_A_H;
+    m_opcodeTable[0x9D] = &Z80::OP_SBC_A_L;
+    m_opcodeTable[0x9E] = &Z80::OP_SBC_A_HL;
+    m_opcodeTable[0x9F] = &Z80::OP_SBC_A_A;
+    m_opcodeTable[0xDE] = &Z80::OP_SBC_A_n;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -499,6 +521,42 @@ void Z80::OP_SUB_n()
 {
     uint8_t n = m_memory->Read(PC++);
     SUB_A_r(n);
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_ADC_A_B() { ADC_A_r(BC.high); }
+void Z80::OP_ADC_A_C() { ADC_A_r(BC.low); }
+void Z80::OP_ADC_A_D() { ADC_A_r(DE.high); }
+void Z80::OP_ADC_A_E() { ADC_A_r(DE.low); }
+void Z80::OP_ADC_A_H() { ADC_A_r(HL.high); }
+void Z80::OP_ADC_A_L() { ADC_A_r(HL.low); }
+void Z80::OP_ADC_A_HL() 
+{ 
+    ADC_A_r(m_memory->Read(HL.pair));
+    m_cyclesLastInstruction = 7; 
+}
+void Z80::OP_ADC_A_A() { ADC_A_r(A); }
+void Z80::OP_ADC_A_n() 
+{ 
+    ADC_A_r(m_memory->Read(PC++));
+    m_cyclesLastInstruction = 7;
+}
+
+void Z80::OP_SBC_A_B() { SBC_A_r(BC.high); }
+void Z80::OP_SBC_A_C() { SBC_A_r(BC.low); }
+void Z80::OP_SBC_A_D() { SBC_A_r(DE.high); }
+void Z80::OP_SBC_A_E() { SBC_A_r(DE.low); }
+void Z80::OP_SBC_A_H() { SBC_A_r(HL.high); }
+void Z80::OP_SBC_A_L() { SBC_A_r(HL.low); }
+void Z80::OP_SBC_A_HL() 
+{
+    SBC_A_r(m_memory->Read(HL.pair));
+    m_cyclesLastInstruction = 7;
+}
+void Z80::OP_SBC_A_A() { SBC_A_r(A); }
+void Z80::OP_SBC_A_n()
+{
+    SBC_A_r(m_memory->Read(PC++));
     m_cyclesLastInstruction = 7;
 }
 
@@ -830,6 +888,53 @@ void Z80::LD_addr_A()
     m_memory->Write((high << 8) | low, A);
 
     m_cyclesLastInstruction = 13;
+}
+
+void Z80::ADC_A_r(uint8_t value)
+{
+    uint8_t oldA = A;
+    uint8_t carry = GetFlag(FLAG_C) ? 1 : 0;
+    uint16_t result = A + value + carry;
+
+    A = result & 0xFF;
+
+    SetFlag(FLAG_C, result > 0xFF);
+    SetFlag(FLAG_Z, result == 0x00);
+    SetFlag(FLAG_S, (A & 0x80) != 0);
+
+    // Half-carry: considera anche il carry
+    SetFlag(FLAG_H, ((oldA & 0x0F) + (value & 0x0F) + carry) > 0x0F);
+
+    // Overflow: cambio di segno inaspettato
+    bool overflow = ((oldA ^ result) & (value ^ result) & 0x80) != 0;
+    SetFlag(FLAG_PV, overflow);
+
+    SetFlag(FLAG_N, false);
+
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::SBC_A_r(uint8_t value)
+{
+    uint8_t oldA = A;
+    uint8_t carry = GetFlag(FLAG_C) ? 1 : 0;
+    uint16_t result = A - value - carry;
+
+    A = result & 0xFF;
+    SetFlag(FLAG_C, oldA < (value + carry));
+    SetFlag(FLAG_Z, result == 0);
+    SetFlag(FLAG_S, (A & 0x80) != 0);
+
+    // Half-carry: considera anche il carry
+    SetFlag(FLAG_H, (oldA & 0x0F) < (value & 0x0F) + carry);
+    
+    // Overflow: cambio di segno inaspettato
+    bool overflow = ((oldA ^ value) & (oldA ^ result) & 0x80) != 0;
+    SetFlag(FLAG_PV, overflow);
+
+    SetFlag(FLAG_N, true);
+
+    m_cyclesLastInstruction = 4;
 }
 
 void Z80::PUSH_16bit(uint16_t value)

@@ -244,34 +244,49 @@ private:
 	void OP_LD_HL_pnn();
 	void OP_LD_pnn_HL();
 	void OP_LD_SP_HL();
+
+	// CB
+	void OP_CB_Prefix();
 					  
 	// Helper functions per operazioni comuni
-	void INC_r(uint8_t &reg);							  // Incremento 8-bit
-	void DEC_r(uint8_t &reg);							  // Decremento 8-bit
-	void LD_r_n(uint8_t &reg);							  // Load immediate
-	void LD_r_r(uint8_t &dest, uint8_t src);			  // Load register to register
-	void ADD_A_r(uint8_t value);						  // Addizione
-	void SUB_A_r(uint8_t value);						  // Sottrazione
-	void AND_A_r(uint8_t value);						  // AND
-	void OR_A_r(uint8_t value);							  // OR
-	void XOR_A_r(uint8_t value);						  // XOR
-	void CP_A_r(uint8_t value);							  // Compare
-	void RET_conditional(uint8_t flag, bool condition);   // Ret
-	void CALL_conditional(uint8_t flag, bool condition);  // Call
-	void JP_nn_conditional(uint8_t flag, bool condition); // Jump nn
-	void JR_conditional(uint8_t flag, bool condition);    // Jump e
-	void PUSH_rr(RegisterPair const *reg);				  // Push
-	void POP_rr(RegisterPair *reg);				          // Pop
-	void LD_rr_nn(uint16_t &reg);						  // Load 16 bit
-	void INC_rr(uint16_t & reg);						  // Inc 16 bit
-	void DEC_rr(uint16_t &reg);							  // Dec 16 bit
-	void ADD_HL_rr(uint16_t reg);						  // ADD 16 bit
-	void LD_A_indirect(uint16_t address);				  // Load da memoria indirizzo registro
-	void LD_indirect_A(uint16_t address);				  // Store in memoria indirizzo registro
-	void LD_A_addr();									  // Load da memoria indirizzo istruzione
-	void LD_addr_A();									  // Store in memoria indirizzo istruzione
-	void ADC_A_r(uint8_t value);						  // Somma con carry
-	void SBC_A_r(uint8_t value);						  // Sottrazione con carry
+	void INC_r(uint8_t &reg);								// Incremento 8-bit
+	void DEC_r(uint8_t &reg);								// Decremento 8-bit
+	void LD_r_n(uint8_t &reg);								// Load immediate
+	void LD_r_r(uint8_t &dest, uint8_t src);				// Load register to register
+	void ADD_A_r(uint8_t value);							// Addizione
+	void SUB_A_r(uint8_t value);							// Sottrazione
+	void AND_A_r(uint8_t value);							// AND
+	void OR_A_r(uint8_t value);								// OR
+	void XOR_A_r(uint8_t value);							// XOR
+	void CP_A_r(uint8_t value);								// Compare
+	void RET_conditional(uint8_t flag, bool condition);		// Ret
+	void CALL_conditional(uint8_t flag, bool condition);	// Call
+	void JP_nn_conditional(uint8_t flag, bool condition);	// Jump nn
+	void JR_conditional(uint8_t flag, bool condition);		// Jump e
+	void PUSH_rr(RegisterPair const *reg);					// Push
+	void POP_rr(RegisterPair *reg);							// Pop
+	void LD_rr_nn(uint16_t &reg);							// Load 16 bit
+	void INC_rr(uint16_t & reg);							// Inc 16 bit
+	void DEC_rr(uint16_t &reg);								// Dec 16 bit
+	void ADD_HL_rr(uint16_t reg);							// ADD 16 bit
+	void LD_A_indirect(uint16_t address);					// Load da memoria indirizzo registro
+	void LD_indirect_A(uint16_t address);					// Store in memoria indirizzo registro
+	void LD_A_addr();										// Load da memoria indirizzo istruzione
+	void LD_addr_A();										// Store in memoria indirizzo istruzione
+	void ADC_A_r(uint8_t value);							// Somma con carry
+	void SBC_A_r(uint8_t value);							// Sottrazione con carry
+	void HandleRotateShift(uint8_t operation, uint8_t reg); // Rotate shift operation
+	void HandleBit(uint8_t bit_number, uint8_t reg);			// Bit operation
+	void HandleRes(uint8_t bit_number, uint8_t reg);			// Bit reset
+	void HandleSet(uint8_t bit_number, uint8_t reg);			// Bit set
+	void CB_RLC(uint8_t &reg);
+	void CB_RRC(uint8_t &reg);
+	void CB_RL(uint8_t &reg);
+	void CB_RR(uint8_t &reg);
+	void CB_SLA(uint8_t &reg);
+	void CB_SRA(uint8_t &reg);
+	void CB_SWAP(uint8_t &reg);
+	void CB_SRL(uint8_t &reg);
 
 	// Helper functions per stack
 	void PUSH_16bit(uint16_t value);

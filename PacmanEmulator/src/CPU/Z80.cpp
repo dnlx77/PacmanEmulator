@@ -219,6 +219,9 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0x2A] = &Z80::OP_LD_HL_pnn;
     m_opcodeTable[0x22] = &Z80::OP_LD_pnn_HL;
     m_opcodeTable[0xF9] = &Z80::OP_LD_SP_HL;
+
+    // CB
+    m_opcodeTable[0xCB] = &Z80::OP_CB_Prefix;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -600,6 +603,33 @@ void Z80::OP_LD_SP_HL()
     m_cyclesLastInstruction = 6;
 }
 
+void Z80::OP_CB_Prefix()
+{
+    uint8_t cb_opcode = m_memory->Read(PC++);
+
+    // decode using bit pattern
+    uint8_t reg = cb_opcode & 0x07;     // bit 0-2 registro
+    uint8_t operation = cb_opcode >> 3; // bit 3-7: operazione
+
+    // Dispatch basato su operation
+    if (cb_opcode < 0x40) {
+        // 0x00 -0x3F: Rotate shift operation
+        HandleRotateShift(operation, reg);
+    }
+    else if (cb_opcode < 0x80) {
+        // 0x40-0x7F: Bit operations
+        HandleBit(operation, reg);
+    }
+    else if (cb_opcode < 0xC0) {
+        // 0x80-0xBF: RES operation
+        HandleRes(operation, reg);
+    }
+    else {
+        // oxC0-0xFF: Set operation
+        HandleSet(operation, reg);
+    }
+}
+
 void Z80::OP_AND_n()
 {
     uint8_t n = m_memory->Read(PC++);
@@ -975,6 +1005,228 @@ void Z80::SBC_A_r(uint8_t value)
     SetFlag(FLAG_N, true);
 
     m_cyclesLastInstruction = 4;
+}
+
+void Z80::HandleRotateShift(uint8_t operation, uint8_t reg)
+{
+    uint8_t *p_reg = m_registerMap[reg];
+
+    // gestisci HL separatamente
+    if (reg == 6) {
+        uint8_t value = m_memory->Read(HL.pair);
+        uint8_t &ref = value;
+
+        switch (operation) {
+        case 0: CB_RLC(ref); break;
+        case 1: CB_RRC(ref); break;
+        case 2: CB_RL(ref); break;
+        case 3: CB_RR(ref); break;
+        case 4: CB_SLA(ref); break;
+        case 5: CB_SRA(ref); break;
+        case 6: CB_SWAP(ref); break;
+        case 7: CB_SRL(ref); break;
+        }
+        
+        m_memory->Write(HL.pair, ref);
+
+        m_cyclesLastInstruction = 15;
+    }
+    else {
+        switch (operation) {
+        case 0: CB_RLC(*p_reg); break;
+        case 1: CB_RRC(*p_reg); break;
+        case 2: CB_RL(*p_reg); break;
+        case 3: CB_RR(*p_reg); break;
+        case 4: CB_SLA(*p_reg); break;
+        case 5: CB_SRA(*p_reg); break;
+        case 6: CB_SWAP(*p_reg); break;
+        case 7: CB_SRL(*p_reg); break;
+        }
+
+        m_cyclesLastInstruction = 8;
+    }
+}
+
+void Z80::HandleBit(uint8_t bit_number, uint8_t reg)
+{
+    uint8_t *p_reg = m_registerMap[reg];
+    if (reg == 6) {
+        uint8_t value = m_memory->Read(HL.pair);
+        bool bit_value = (value & (1 << bit_number)) != 0;
+
+        SetFlag(FLAG_Z, !bit_value);
+        SetFlag(FLAG_H, true);
+        SetFlag(FLAG_N, false);
+        SetFlag(FLAG_PV, !bit_value);  // Stesso di Z
+        
+        // Flag S: Solo per BIT 7, altrimenti 0
+        if (bit_number == 7) {
+            SetFlag(FLAG_S, bit_value);  // S = valore bit 7
+        }
+        else {
+            SetFlag(FLAG_S, false);  // S = 0 per altri bit
+        }
+
+        m_cyclesLastInstruction = 12;
+    }
+    else {
+        bool bit_value = (*p_reg & (1 << bit_number)) != 0;
+
+        SetFlag(FLAG_Z, !bit_value);
+        SetFlag(FLAG_H, true);
+        SetFlag(FLAG_N, false);
+        SetFlag(FLAG_PV, !bit_value);  // Stesso di Z
+        
+        // Flag S: Solo per BIT 7, altrimenti 0
+        if (bit_number == 7) {
+            SetFlag(FLAG_S, bit_value);  // S = valore bit 7
+        }
+        else {
+            SetFlag(FLAG_S, false);  // S = 0 per altri bit
+        }
+
+        m_cyclesLastInstruction = 8;
+    }
+}
+
+void Z80::HandleRes(uint8_t bit_number, uint8_t reg)
+{
+    uint8_t *p_reg = m_registerMap[reg];
+    if (reg == 6) {
+        uint8_t value = m_memory->Read(HL.pair);
+        value &= ~(1 << bit_number); // clear bit
+        m_memory->Write(HL.pair, value);
+
+        m_cyclesLastInstruction = 15;
+    }
+    else {
+        *p_reg &= ~(1 << bit_number); // clear bit
+
+        m_cyclesLastInstruction = 8;
+    }
+}
+
+void Z80::HandleSet(uint8_t bit_number, uint8_t reg)
+{
+    uint8_t *p_reg = m_registerMap[reg];
+    if (reg == 6) {
+        uint8_t value = m_memory->Read(HL.pair);
+        value |= (1 << bit_number); // set bit
+        m_memory->Write(HL.pair, value);
+
+        m_cyclesLastInstruction = 15;
+    }
+    else {
+        *p_reg |= (1 << bit_number); // set bit
+
+        m_cyclesLastInstruction = 8;
+    }
+}
+
+void Z80::CB_RLC(uint8_t &reg)
+{
+    uint8_t bit7 = (reg & 0x80) >> 7;
+    reg = (reg << 1) | bit7;
+
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, CalculateParity(reg));
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, bit7 != 0);
+}
+
+void Z80::CB_RRC(uint8_t &reg)
+{
+    uint8_t bit0 = reg & 0x01;
+    reg = (bit0 << 7) | (reg >> 1);
+
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, CalculateParity(reg));
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, bit0 != 0);
+}
+
+void Z80::CB_RL(uint8_t &reg)
+{
+    uint8_t old_carry = GetFlag(FLAG_C) ? 1 : 0;
+    uint8_t bit7 = (reg & 0x80) >> 7;
+    reg = (reg << 1) | old_carry;
+
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, CalculateParity(reg));
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, bit7 != 0);
+}
+
+void Z80::CB_RR(uint8_t &reg)
+{
+    uint8_t old_carry = GetFlag(FLAG_C) ? 1 : 0;
+    uint8_t bit0 = reg & 0x01;
+    reg = (reg >> 1) | (old_carry << 7);
+
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, CalculateParity(reg));
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, bit0 != 0);
+}
+
+void Z80::CB_SLA(uint8_t &reg)
+{
+    uint8_t bit7 = (reg & 0x80) >> 7;
+    reg <<= 1;
+
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, CalculateParity(reg));
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, bit7 != 0);
+}
+
+void Z80::CB_SRA(uint8_t &reg)
+{
+    uint8_t bit0 = reg & 0x01;
+    uint8_t bit7 = reg & 0x80;
+    reg = (reg >> 1) | bit7;
+
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, CalculateParity(reg));
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, bit0 != 0);
+}
+
+void Z80::CB_SWAP(uint8_t &reg)
+{
+    reg = ((reg & 0x0F) << 4) | ((reg & 0xF0) >> 4);
+
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, CalculateParity(reg));
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, false);
+}
+
+void Z80::CB_SRL(uint8_t &reg)
+{
+    uint8_t bit0 = reg & 0x01;
+    reg = reg >> 1;
+
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, CalculateParity(reg));
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, bit0 != 0);
 }
 
 void Z80::PUSH_16bit(uint16_t value)

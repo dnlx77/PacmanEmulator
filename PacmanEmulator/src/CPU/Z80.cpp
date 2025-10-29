@@ -1,4 +1,4 @@
-#include "CPU/Z80.h"
+﻿#include "CPU/Z80.h"
 #include <stdexcept>
 #include <algorithm>
 
@@ -17,6 +17,12 @@ Z80::Z80(MemoryBus *memory) : m_memory(memory) {
     m_registerMap[5] = &HL.low;  // L
     m_registerMap[6] = nullptr;  // (HL) - non usato direttamente
     m_registerMap[7] = &A;       // A
+
+    // inizializza register map 16 bit
+    m_register16Map[0] = &BC.pair;
+    m_register16Map[1] = &DE.pair;
+    m_register16Map[2] = &HL.pair;
+    m_register16Map[3] = &SP;
 
     InitOpcodeTable();
 }
@@ -222,6 +228,9 @@ void Z80::InitOpcodeTable() {
 
     // CB
     m_opcodeTable[0xCB] = &Z80::OP_CB_Prefix;
+
+    // ED
+    m_opcodeTable[0xED] = &Z80::OP_ED_Prefix;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -630,6 +639,46 @@ void Z80::OP_CB_Prefix()
     }
 }
 
+void Z80::OP_ED_Prefix() 
+{
+    uint8_t ed_opcode = m_memory->Read(PC++);
+
+    // Caso speciale per NEG (0x44)
+    if (ed_opcode == 0x44) {
+        NEG();
+        return;
+    }
+
+    // Block operation
+    if (ed_opcode == 0xA0) { LDI(); return; }
+    if (ed_opcode == 0xB0) { LDIR(); return; }
+    if (ed_opcode == 0xA8) { LDD(); return; }
+    if (ed_opcode == 0xB8) { LDDR(); return; }
+
+    // Block operations - Compare
+    if (ed_opcode == 0xA1) { CPI(); return; }
+    if (ed_opcode == 0xB1) { CPIR(); return; }
+    if (ed_opcode == 0xA9) { CPD(); return; }
+    if (ed_opcode == 0xB9) { CPDR(); return; }
+
+    // decode using bit pattern
+    uint8_t reg_index = (ed_opcode >> 4) & 0x03;     // bit 4-5 registro
+    uint8_t operation = ed_opcode & 0x0F;            // bit 0-3: operazione
+
+    // Verifica che reg_index sia valido
+    if (reg_index >= 4) return;
+
+    uint16_t *reg = m_register16Map[reg_index];
+
+    switch (operation)
+    {
+    case 0x02: { SBC_HL(reg); break; }
+    case 0x03: { LD_pnn_rr(reg); break; }
+    case 0x0A: { ADC_HL(reg); break; }
+    case 0x0B: { LD_rr_pnn(reg); break; }
+    }
+}
+
 void Z80::OP_AND_n()
 {
     uint8_t n = m_memory->Read(PC++);
@@ -718,10 +767,10 @@ void Z80::ADD_A_r(uint8_t value) {
     // Flag Carry: set se risultato > 255
     SetFlag(FLAG_C, result > 0xFF);
 
-    // Flag Zero: set se A � 0
+    // Flag Zero: set se A è 0
     SetFlag(FLAG_Z, A == 0x00);
 
-    // Flag Sign: set se bit 7 � 1
+    // Flag Sign: set se bit 7 è 1
     SetFlag(FLAG_S, (A & 0x80) != 0);
 
     // Half-Carry: carry dal bit 3 al bit 4
@@ -733,7 +782,7 @@ void Z80::ADD_A_r(uint8_t value) {
     bool overflow = ((oldA ^ result) & (value ^ result) & 0x80) != 0;
     SetFlag(FLAG_PV, overflow);
 
-    // N flag: reset (� addizione)
+    // N flag: reset (è addizione)
     SetFlag(FLAG_N, false);
 
     m_cyclesLastInstruction = 4;
@@ -1014,20 +1063,19 @@ void Z80::HandleRotateShift(uint8_t operation, uint8_t reg)
     // gestisci HL separatamente
     if (reg == 6) {
         uint8_t value = m_memory->Read(HL.pair);
-        uint8_t &ref = value;
 
         switch (operation) {
-        case 0: CB_RLC(ref); break;
-        case 1: CB_RRC(ref); break;
-        case 2: CB_RL(ref); break;
-        case 3: CB_RR(ref); break;
-        case 4: CB_SLA(ref); break;
-        case 5: CB_SRA(ref); break;
-        case 6: CB_SWAP(ref); break;
-        case 7: CB_SRL(ref); break;
+        case 0: CB_RLC(value); break;
+        case 1: CB_RRC(value); break;
+        case 2: CB_RL(value); break;
+        case 3: CB_RR(value); break;
+        case 4: CB_SLA(value); break;
+        case 5: CB_SRA(value); break;
+        case 6: CB_SWAP(value); break;
+        case 7: CB_SRL(value); break;
         }
         
-        m_memory->Write(HL.pair, ref);
+        m_memory->Write(HL.pair, value);
 
         m_cyclesLastInstruction = 15;
     }
@@ -1227,6 +1275,245 @@ void Z80::CB_SRL(uint8_t &reg)
     SetFlag(FLAG_PV, CalculateParity(reg));
     SetFlag(FLAG_N, false);
     SetFlag(FLAG_C, bit0 != 0);
+}
+
+void Z80::SBC_HL(const uint16_t *reg)
+{
+    uint8_t oldCarry = GetFlag(FLAG_C) ? 1 : 0;
+    uint16_t oldHL = HL.pair;
+
+    int32_t result = (int32_t)HL.pair - (int32_t)*reg - oldCarry;
+
+    HL.pair = result & 0xFFFF;
+
+    SetFlag(FLAG_Z, HL.pair == 0x0000);
+    SetFlag(FLAG_S, (HL.pair & 0x8000) != 0);
+    SetFlag(FLAG_H, ((oldHL & 0x0FFF) - (*reg & 0x0FFF) - oldCarry) < 0);
+
+    bool overflow = ((oldHL & 0x8000) != (*reg & 0x8000)) &&
+                    ((oldHL & 0x8000) != (HL.pair & 0x8000));
+    SetFlag(FLAG_PV, overflow);
+    SetFlag(FLAG_N, true);
+    SetFlag(FLAG_C, result < 0);
+
+    m_cyclesLastInstruction = 15;
+}
+
+void Z80::LD_pnn_rr(const uint16_t *reg)
+{
+    // Leggi indirizzo in memoria
+    uint8_t nn_low = m_memory->Read(PC++);
+    uint8_t nn_high = m_memory->Read(PC++);
+
+    // compongo l'address
+    uint16_t address = nn_high << 8 | nn_low;
+
+    // scrivo in memoria il valore contenuto nel registro
+    m_memory->Write(address, *reg & 0x00FF);
+    m_memory->Write(address + 1, (*reg & 0xFF00) >> 8);
+
+    m_cyclesLastInstruction = 20;
+}
+
+void Z80::ADC_HL(const uint16_t *reg)
+{
+    uint8_t oldCarry = GetFlag(FLAG_C) ? 1 : 0;
+
+    uint16_t oldHL = HL.pair;
+    uint32_t result = HL.pair + *reg + oldCarry;
+
+    HL.pair = result & 0xFFFF;
+
+    SetFlag(FLAG_Z, HL.pair == 0x0000);
+    SetFlag(FLAG_S, (HL.pair & 0x8000) != 0);
+    SetFlag(FLAG_H, ((oldHL & 0x0FFF) + (*reg & 0x0FFF) + oldCarry) > 0x0FFF);
+
+    bool overflow = ((oldHL & 0x8000) == (*reg & 0x8000)) && 
+                    ((oldHL & 0x8000) != (HL.pair & 0x8000));
+    SetFlag(FLAG_PV, overflow);
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, result > 0xFFFF);
+
+    m_cyclesLastInstruction = 15;
+}
+
+void Z80::LD_rr_pnn(uint16_t *reg)
+{
+    // Leggi indirizzo in memoria
+    uint8_t nn_low = m_memory->Read(PC++);
+    uint8_t nn_high = m_memory->Read(PC++);
+
+    // compongo l'address
+    uint16_t address = nn_high << 8 | nn_low;
+
+    //leggo il valore di 16 bit
+    uint8_t value_low = m_memory->Read(address);
+    uint8_t value_high = m_memory->Read(address + 1);
+
+    // memorizzo il valore lettonel registroù
+    *reg = value_high << 8 | value_low;
+
+    m_cyclesLastInstruction = 20;
+}
+
+void Z80::NEG()
+{
+    uint8_t oldA = A;
+    int8_t result = 0 - (int8_t)oldA;
+    A = (uint8_t)result;
+
+    SetFlag(FLAG_Z, A == 0);
+    SetFlag(FLAG_S, (A & 0x80) != 0);
+
+    // H=1 se A aveva bit bassi (0x0F)
+    bool h_borrow = (oldA & 0x0F) != 0;
+    SetFlag(FLAG_H, h_borrow);
+
+    // Overflow solo se A = 0x80 (-128)
+    bool overflow = (oldA == 0x80);
+    SetFlag(FLAG_PV, overflow);
+    SetFlag(FLAG_N, true);
+
+    // C = 1 sw A non era 0 (c'era un prestito)
+    SetFlag(FLAG_C, oldA != 0);
+
+    m_cyclesLastInstruction = 8;
+}
+
+void Z80::LDI()
+{
+    uint8_t value = m_memory->Read(HL.pair);
+    m_memory->Write(DE.pair, value);
+    HL.pair++;
+    DE.pair++;
+    BC.pair--;
+
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, BC.pair != 0);
+    SetFlag(FLAG_N, false);
+
+    m_cyclesLastInstruction = 16;
+}
+
+void Z80::LDIR()
+{
+    // Esegui un'interazione
+    LDI();
+
+    // Se BC != 0, ritorna al PC precedente (effetto loop)
+    if (BC.pair != 0) {
+        PC -= 2;
+        m_cyclesLastInstruction = 21;  // Include il tentativo di jump
+    }
+    else {
+        m_cyclesLastInstruction = 16;  // Ultima iterazione
+    }
+}
+
+void Z80::LDD()
+{
+    uint8_t value = m_memory->Read(HL.pair);
+    m_memory->Write(DE.pair, value);
+    HL.pair--;
+    DE.pair--;
+    BC.pair--;
+
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_PV, BC.pair != 0);
+    SetFlag(FLAG_N, false);
+
+    m_cyclesLastInstruction = 16;
+}
+
+void Z80::LDDR()
+{
+    // Esegui un'interazione
+    LDD();
+
+    // Se BC != 0, ritorna al PC precedente (effetto loop)
+    if (BC.pair != 0) {
+        PC -= 2;
+        m_cyclesLastInstruction = 21;  // Include il tentativo di jump
+    }
+    else {
+        m_cyclesLastInstruction = 16;  // Ultima iterazione
+    }
+}
+
+void Z80::CPI() {
+    uint8_t memValue = m_memory->Read(HL.pair);
+
+    // Calcola il risultato della sottrazione (per i flag!)
+    int16_t result = (int16_t)(int8_t)A - (int16_t)(int8_t)memValue;
+
+    // Flag Z: Z = 1 se A == memValue
+    SetFlag(FLAG_Z, A == memValue);
+
+    // Flag S: bit di segno del risultato
+    SetFlag(FLAG_S, (result & 0x80) != 0);
+
+    // Flag H: half-borrow
+    bool h_borrow = ((A & 0x0F) - (memValue & 0x0F)) < 0;
+    SetFlag(FLAG_H, h_borrow);
+
+    // Modifica HL e BC
+    HL.pair++;
+    BC.pair--;
+
+    // Flag PV: (BC != 0) dopo decremento
+    SetFlag(FLAG_PV, BC.pair != 0);
+
+    // Flag N: è una sottrazione!
+    SetFlag(FLAG_N, true);
+
+    // C non viene modificato!
+
+    m_cyclesLastInstruction = 16;
+}
+
+void Z80::CPIR() {
+    CPI();
+
+    // Ripeti se: BC != 0 AND Z == 0 (nessun match)
+    if (BC.pair != 0 && !GetFlag(FLAG_Z)) {
+        PC -= 2;
+        m_cyclesLastInstruction = 21;
+    }
+    else {
+        m_cyclesLastInstruction = 16;
+    }
+}
+
+void Z80::CPD() {
+    uint8_t memValue = m_memory->Read(HL.pair);
+    int16_t result = (int16_t)(int8_t)A - (int16_t)(int8_t)memValue;
+
+    SetFlag(FLAG_Z, A == memValue);
+    SetFlag(FLAG_S, (result & 0x80) != 0);
+
+    bool h_borrow = ((A & 0x0F) - (memValue & 0x0F)) < 0;
+    SetFlag(FLAG_H, h_borrow);
+
+    HL.pair--;  // ← Decrementa invece di incrementare!
+    BC.pair--;
+
+    SetFlag(FLAG_PV, BC.pair != 0);
+    SetFlag(FLAG_N, true);
+
+    m_cyclesLastInstruction = 16;
+}
+
+void Z80::CPDR() {
+    CPD();
+
+    // Ripeti se: BC != 0 AND Z == 0
+    if (BC.pair != 0 && !GetFlag(FLAG_Z)) {
+        PC -= 2;
+        m_cyclesLastInstruction = 21;
+    }
+    else {
+        m_cyclesLastInstruction = 16;
+    }
 }
 
 void Z80::PUSH_16bit(uint16_t value)

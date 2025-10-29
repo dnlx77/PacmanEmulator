@@ -12,7 +12,7 @@ union RegisterPair {
 
 static const uint8_t FLAG_C = 0x01;  // Carry
 static const uint8_t FLAG_N = 0x02;  // Add/Subtract
-static const uint8_t FLAG_PV = 0x04;  // Parity/Overflow
+static const uint8_t FLAG_PV = 0x04; // Parity/Overflow
 static const uint8_t FLAG_H = 0x10;  // Half Carry
 static const uint8_t FLAG_Z = 0x40;  // Zero
 static const uint8_t FLAG_S = 0x80;  // Sign
@@ -40,6 +40,7 @@ private:
 
 	// Register mapping array
 	uint8_t *m_registerMap[8];
+	uint16_t *m_register16Map[4];
 
 	// Opcode table
 	using OpcodeFunction = void (Z80::*)();
@@ -247,6 +248,9 @@ private:
 
 	// CB
 	void OP_CB_Prefix();
+
+	// ED
+	void OP_ED_Prefix();
 					  
 	// Helper functions per operazioni comuni
 	void INC_r(uint8_t &reg);								// Incremento 8-bit
@@ -276,17 +280,30 @@ private:
 	void ADC_A_r(uint8_t value);							// Somma con carry
 	void SBC_A_r(uint8_t value);							// Sottrazione con carry
 	void HandleRotateShift(uint8_t operation, uint8_t reg); // Rotate shift operation
-	void HandleBit(uint8_t bit_number, uint8_t reg);			// Bit operation
-	void HandleRes(uint8_t bit_number, uint8_t reg);			// Bit reset
-	void HandleSet(uint8_t bit_number, uint8_t reg);			// Bit set
-	void CB_RLC(uint8_t &reg);
-	void CB_RRC(uint8_t &reg);
-	void CB_RL(uint8_t &reg);
-	void CB_RR(uint8_t &reg);
-	void CB_SLA(uint8_t &reg);
-	void CB_SRA(uint8_t &reg);
-	void CB_SWAP(uint8_t &reg);
-	void CB_SRL(uint8_t &reg);
+	void HandleBit(uint8_t bit_number, uint8_t reg);		// Bit operation
+	void HandleRes(uint8_t bit_number, uint8_t reg);		// Bit reset
+	void HandleSet(uint8_t bit_number, uint8_t reg);		// Bit set
+	void CB_RLC(uint8_t &reg);								// Rotazione a sinistra con carry
+	void CB_RRC(uint8_t &reg);								// Rotazione a destra con carry
+	void CB_RL(uint8_t &reg);								// Rotazione a sinistra
+	void CB_RR(uint8_t &reg);								// Rotazione a destra
+	void CB_SLA(uint8_t &reg);								// Shift a sinistra aritmetico
+	void CB_SRA(uint8_t &reg);								// Shift a destra aritmetico
+	void CB_SWAP(uint8_t &reg);								// swap del nibble
+	void CB_SRL(uint8_t &reg);								// Shift a destra logico
+	void SBC_HL(const uint16_t *reg);						// Sottrazione a 16 bit con carry
+	void LD_pnn_rr(const uint16_t *reg);					// Store in memoria da indirizzo opcode contenuto registro
+	void ADC_HL(const uint16_t *reg);						// Addizzione a 16 bit con carry
+	void LD_rr_pnn(uint16_t *reg);							// Load da memoria da indirizzo opcode a registro
+	void NEG();												// Negazione registro A
+	void LDI();												// Load and increment
+	void LDIR();											// Load and increment repeat
+	void LDD();												// Load and decrement
+	void LDDR();											// Load and decrement repeat
+	void CPI();												// Compare and increment
+	void CPIR();											// Compare and increment repeat
+	void CPD();												// Compare and decrement
+	void CPDR();											// Compare and decrement repeat
 
 	// Helper functions per stack
 	void PUSH_16bit(uint16_t value);
@@ -308,11 +325,27 @@ public:
 	uint64_t GetTotalCycles() const { return m_totalCycles; }
 	void ResetCycles() { m_totalCycles = 0; }
 
-	// Getter per debugging (opzionali, aggiungili se/quando servono)
+#ifdef _DEBUG
+	// Debug getters
+	uint16_t GetHL() const { return HL.pair; }
+	uint16_t GetDE() const { return DE.pair; }
 	uint8_t GetA() const { return A; }
 	uint8_t GetF() const { return F; }
 	uint16_t GetBC() const { return BC.pair; }
 	uint16_t GetPC() const { return PC; }
-	uint16_t GetSP() const { return SP; }
-	// ... altri getter se servono
+
+	// Debug setters
+	void SetHL(uint16_t value) { HL.pair = value; }
+	void SetDE(uint16_t value) { DE.pair = value; }
+	void SetBC(uint16_t value) { BC.pair = value; }
+	void SetSP(uint16_t value) { SP = value; }
+	void SetA(uint8_t value) { A = value; }
+	void SetF(uint8_t value) { F = value; }
+
+	// Memory access
+	MemoryBus *GetMemory() { return m_memory; }
+
+	// Flag access
+	bool GetterFlag(uint8_t flag) const { return (F & flag) != 0; }
+#endif
 };

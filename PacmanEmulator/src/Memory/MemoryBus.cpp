@@ -2,7 +2,7 @@
 #include <fstream>
 #include <iostream>
 
-MemoryBus::MemoryBus() : m_romLoaded(false)
+MemoryBus::MemoryBus()
 {
 }
 
@@ -57,13 +57,13 @@ void MemoryBus::Initialize() {
 	m_SRam.fill(0);
 }
 
-bool MemoryBus::LoadRom(const std::string &filename)
+size_t MemoryBus::LoadRom(const std::string &filename, ROMType type, size_t offset)
 {
     std::ifstream file(filename, std::ios::binary);
 
     if (!file.is_open()) {
         std::cerr << "Errore: impossibile aprire " << filename << std::endl;
-        return false;
+        return 0;
     }
 
     // Ottieni dimensione
@@ -72,26 +72,38 @@ bool MemoryBus::LoadRom(const std::string &filename)
     file.seekg(0, std::ios::beg);
 
     std::cout << "Dimensione file: " << fileSize << " bytes" << std::endl;
-
+	/*
     // Verifica dimensione
     if (fileSize > 0x4000) {
         std::cerr << "Errore: ROM troppo grande! Max 16KB" << std::endl;
         file.close();
-        return false;
-    }
-
-    // Leggi dati
-    file.read(reinterpret_cast<char *>(m_rom.data()), fileSize);
-
-    if (!file) {
-        std::cerr << "Errore durante la lettura!" << std::endl;
-        file.close();
-        return false;
-    }
-
+        return 0;
+    }*/
+	if (type == ROMType::CPU) {
+		// Leggi i dati
+		file.read(reinterpret_cast<char *>(m_rom.data() + offset), fileSize);
+	}
+	else if (type == ROMType::GRAPHICS_TILES) {
+		file.read(reinterpret_cast<char *>(m_graphicsTiles.data() + offset), fileSize);
+	}
+	else if (type == ROMType::GRAPHICS_PALETTE) {
+		file.read(reinterpret_cast<char *>(m_graphicsPalette.data() + offset), fileSize);
+	}
+    
+	size_t bytesRead = file.gcount();
     file.close();
-    m_romLoaded = true;
 
     std::cout << "ROM caricata con successo: " << filename << std::endl;
-    return true;
+    
+	return bytesRead;
+}
+
+const uint8_t *MemoryBus::GetGraphicsTiles() const
+{
+	return m_graphicsTiles.data();
+}
+
+const uint8_t *MemoryBus::GetGraphicsPalette() const
+{
+	return m_graphicsPalette.data();
 }

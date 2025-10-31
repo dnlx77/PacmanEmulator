@@ -23,7 +23,7 @@ public:
     bool Initialize();
 
     // Carica le ROM di Pac-Man
-    bool LoadROM(const std::string &romPath);
+    bool LoadRomSet(const std::string &romDir);
 
     // Loop principale
     void Run();

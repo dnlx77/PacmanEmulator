@@ -3,6 +3,7 @@
 #include<string>
 #include<vector>
 #include<array>
+#include "Config/RomConfig.h"
 
 class MemoryBus {
 private:
@@ -11,14 +12,25 @@ private:
 	std::array<uint8_t, 0X400> m_CRam;		// Color Ram
 	std::array<uint8_t, 0X400> m_ram;		// Ram
 	std::array<uint8_t, 0X100> m_SRam;		// Sprite ram
+	std::array<uint8_t, 0x2000> m_graphicsTiles;
+	std::array<uint8_t, 0x100> m_graphicsPalette;
 
-	bool m_romLoaded;
 public:
+	enum class ROMType {
+		CPU,
+		GRAPHICS_TILES,
+		GRAPHICS_PALETTE
+	};
+
 	MemoryBus();
 	~MemoryBus();
-	bool IsROMLoaded() const { return m_romLoaded; }
+
 	uint8_t Read(uint16_t address);
 	void Write(uint16_t address, uint8_t value);
 	void Initialize();
-	bool LoadRom(const std::string &filename);
+	size_t LoadRom(const std::string &filename, ROMType type, size_t offset = 0);
+	
+	// Getter per VideoController
+	const uint8_t *GetGraphicsTiles() const;
+	const uint8_t *GetGraphicsPalette() const;
 };

@@ -37,6 +37,12 @@
     <Filter Include="include\Input">
       <UniqueIdentifier>{387ddbd6-6c78-4390-b926-b0535b47cab6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="include\Config">
+      <UniqueIdentifier>{4fc770a2-11ec-406d-8a1d-96dafc1714b4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\Config">
+      <UniqueIdentifier>{7181aecc-7d85-4f55-8978-26ecd4709fad}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\Core\main.cpp">
@@ -51,6 +57,9 @@
     <ClCompile Include="src\CPU\Z80.cpp">
       <Filter>src\CPU</Filter>
     </ClCompile>
+    <ClCompile Include="src\Config\RomConfig.cpp">
+      <Filter>src\Config</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Core\PacmanEmulator.h">
@@ -61,6 +70,9 @@
     </ClInclude>
     <ClInclude Include="include\CPU\Z80.h">
       <Filter>include\CPU</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Config\RomConfig.h">
+      <Filter>include\Config</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

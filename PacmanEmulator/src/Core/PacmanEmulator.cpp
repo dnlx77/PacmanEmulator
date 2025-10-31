@@ -31,7 +31,7 @@ bool PacmanEmulator::Initialize()
     m_memory->Initialize();
 
     // TODO: Inizializza CPU Z80
-    // m_cpu = std::make_unique<Z80>(m_memory.get());
+    // m_cpu = std::make_unique<Z80>(m_cpu.get());
 
     // TODO: Inizializza VideoController
     // m_video = std::make_unique<VideoController>(m_memory.get());
@@ -40,19 +40,38 @@ bool PacmanEmulator::Initialize()
     return true;
 }
 
-bool PacmanEmulator::LoadROM(const std::string &romPath)
+bool PacmanEmulator::LoadRomSet(const std::string &romDir)
 {
-    std::cout << "PacmanEmulator: Caricamento ROM da " << romPath << std::endl;
-
     // Caricamento ROM
-    std::cout << "PacmanEmulator: Caricamento Rom da " << romPath << std::endl;
+    std::cout << "PacmanEmulator: Caricamento Rom da " << romDir << std::endl;
 
-    if (!m_memory->LoadRom(romPath)) {
-        std::cerr << "Errore nel caricamento della ROM!" << std::endl;
+    // Caricamento cpu roms
+    for (const auto &rom : cpuRoms) {
+        size_t bytesRead = m_memory->LoadRom(romDir + "/" + rom.filename, MemoryBus::ROMType::CPU, rom.offset);
+
+        if (bytesRead!= rom.expectedSize) {
+            std::cerr << "Failed: " << rom.filename << " (read " << bytesRead << " bytes, expected " << rom.expectedSize << ")\n";
+            return false;
+        }
+    }
+
+    for (const auto &rom : graphicRoms) {
+        size_t bytesRead = m_memory->LoadRom(romDir + "/" + rom.filename, MemoryBus::ROMType::GRAPHICS_TILES, rom.offset);
+
+        if (bytesRead != rom.expectedSize) {
+            std::cerr << "Failed: " << rom.filename << " (read " << bytesRead << " bytes, expected " << rom.expectedSize << ")\n";
+            return false;
+        }
+    }
+
+    size_t bytesRead = m_memory->LoadRom(romDir + "/" + graphicsPaletteFile.filename, MemoryBus::ROMType::GRAPHICS_PALETTE, graphicsPaletteFile.offset);
+
+    if (bytesRead != graphicsPaletteFile.expectedSize) {
+        std::cerr << "Failed: " << graphicsPaletteFile.filename << " (read " << bytesRead << " bytes, expected " << graphicsPaletteFile.expectedSize << ")\n";
         return false;
     }
 
-    std::cout << "PacmanEmulator: ROM caricata con successo!" << std::endl;
+    std::cout << "PacmanEmulator: ROMset caricato con successo!" << std::endl;
     return true;
 }
 

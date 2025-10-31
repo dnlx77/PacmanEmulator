@@ -147,12 +147,14 @@ sfml-system.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Config\RomConfig.cpp" />
     <ClCompile Include="src\Core\main.cpp" />
     <ClCompile Include="src\Core\PacmanEmulator.cpp" />
     <ClCompile Include="src\CPU\Z80.cpp" />
     <ClCompile Include="src\Memory\MemoryBus.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="include\Config\RomConfig.h" />
     <ClInclude Include="include\Core\PacmanEmulator.h" />
     <ClInclude Include="include\CPU\Z80.h" />
     <ClInclude Include="include\Memory\MemoryBus.h" />

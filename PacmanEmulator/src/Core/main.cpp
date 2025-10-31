@@ -38,7 +38,7 @@ int main()
 #include <iostream>
 #include <iomanip>
 
-void PrintRegisters(Z80 &cpu) {
+/*void PrintRegisters(Z80 &cpu) {
     std::cout << "A=0x" << std::hex << std::setw(2) << std::setfill('0') << (int)cpu.GetA()
         << " F=0x" << std::setw(2) << (int)cpu.GetF()
         << " BC=0x" << std::setw(4) << cpu.GetBC()
@@ -168,5 +168,23 @@ int main() {
         return 1;
     }
 
+    return 0;
+}*/
+
+int main() {
+    PacmanEmulator emulator;
+
+    if (!emulator.Initialize()) {
+        std::cerr << "Failed to initialize\n";
+        return 1;
+    }
+
+    // ← AGGIUNGI QUESTO:
+    if (!emulator.LoadRomSet("assets")) {  // Directory con i ROM
+        std::cerr << "Failed to load romset\n";
+        return 1;
+    }
+
+    emulator.Run();
     return 0;
 }

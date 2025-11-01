@@ -152,12 +152,14 @@ sfml-system.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClCompile Include="src\Core\PacmanEmulator.cpp" />
     <ClCompile Include="src\CPU\Z80.cpp" />
     <ClCompile Include="src\Memory\MemoryBus.cpp" />
+    <ClCompile Include="src\Video\TileDecoder.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Config\RomConfig.h" />
     <ClInclude Include="include\Core\PacmanEmulator.h" />
     <ClInclude Include="include\CPU\Z80.h" />
     <ClInclude Include="include\Memory\MemoryBus.h" />
+    <ClInclude Include="include\Video\TileDecoder.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -63,6 +63,9 @@
     <ClCompile Include="src\Video\TileDecoder.cpp">
       <Filter>src\Video</Filter>
     </ClCompile>
+    <ClCompile Include="src\Video\VideoController.cpp">
+      <Filter>src\Video</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\Core\PacmanEmulator.h">
@@ -78,6 +81,9 @@
       <Filter>include\Config</Filter>
     </ClInclude>
     <ClInclude Include="include\Video\TileDecoder.h">
+      <Filter>include\Video</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Video\VideoController.h">
       <Filter>include\Video</Filter>
     </ClInclude>
   </ItemGroup>

@@ -55,6 +55,7 @@ bool PacmanEmulator::LoadRomSet(const std::string &romDir)
         }
     }
 
+    // Caricamento graphics roms
     for (const auto &rom : graphicRoms) {
         size_t bytesRead = m_memory->LoadRom(romDir + "/" + rom.filename, MemoryBus::ROMType::GRAPHICS_TILES, rom.offset);
 
@@ -64,6 +65,7 @@ bool PacmanEmulator::LoadRomSet(const std::string &romDir)
         }
     }
 
+    // Caricamento palette rom
     size_t bytesRead = m_memory->LoadRom(romDir + "/" + graphicsPaletteFile.filename, MemoryBus::ROMType::GRAPHICS_PALETTE, graphicsPaletteFile.offset);
 
     if (bytesRead != graphicsPaletteFile.expectedSize) {

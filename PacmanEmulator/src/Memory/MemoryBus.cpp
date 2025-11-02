@@ -55,6 +55,8 @@ void MemoryBus::Initialize() {
 	m_CRam.fill(0);
 	m_ram.fill(0);
 	m_SRam.fill(0);
+	m_graphicsTiles.fill(0);
+	m_graphicsPalette.fill(0);
 }
 
 size_t MemoryBus::LoadRom(const std::string &filename, ROMType type, size_t offset)
@@ -88,6 +90,13 @@ size_t MemoryBus::LoadRom(const std::string &filename, ROMType type, size_t offs
 	}
 	else if (type == ROMType::GRAPHICS_PALETTE) {
 		file.read(reinterpret_cast<char *>(m_graphicsPalette.data() + offset), fileSize);
+
+		// Stampa primi 16 bytes della palette
+		std::cout << "Palette first 16 bytes: ";
+		for (int i = 0; i < 16; i++) {
+			std::cout << "0x" << std::hex << (int)m_graphicsPalette[i] << " ";
+		}
+		std::cout << std::dec << "\n";
 	}
     
 	size_t bytesRead = file.gcount();

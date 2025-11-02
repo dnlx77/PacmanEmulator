@@ -31,6 +31,8 @@ public:
     // Reset dell'emulatore
     void Reset();
 
+    MemoryBus &GetMemory() const { return *m_memory; }
+
 private:
     std::unique_ptr<MemoryBus> m_memory;
     // Componenti dell'emulatore (commentiamo per ora, li aggiungeremo dopo)

@@ -18,4 +18,4 @@ const std::vector<ROMFile> graphicRoms = {
     {"pm1_chg4.5j", 0x1800, 0x0800}
 };
 
-const ROMFile graphicsPaletteFile = { "pm1-2.3m", 0x0000, 0x0100 };
+const ROMFile graphicsPaletteFile = { "pm1-3.1m", 0x0000, 0x0100 };

@@ -1,6 +1,8 @@
 ﻿#include "CPU/Z80.h"
 #include <stdexcept>
 #include <algorithm>
+#include <iostream>
+#include <iomanip>
 
 Z80::Z80(MemoryBus *memory) : m_memory(memory) {
     if (!memory) {
@@ -231,6 +233,26 @@ void Z80::InitOpcodeTable() {
 
     // ED
     m_opcodeTable[0xED] = &Z80::OP_ED_Prefix;
+
+    // RST
+    m_opcodeTable[0xC7] = &Z80::OP_RST_00;  
+    m_opcodeTable[0xCF] = &Z80::OP_RST_08;  
+    m_opcodeTable[0xD7] = &Z80::OP_RST_10;  
+    m_opcodeTable[0xDF] = &Z80::OP_RST_18;  
+    m_opcodeTable[0xE7] = &Z80::OP_RST_20;  
+    m_opcodeTable[0xEF] = &Z80::OP_RST_28;  
+    m_opcodeTable[0xF7] = &Z80::OP_RST_30;  
+    m_opcodeTable[0xFF] = &Z80::OP_RST_38;  
+
+    m_opcodeTable[0xEB] = &Z80::OP_EX_DE_HL;
+    m_opcodeTable[0xE9] = &Z80::OP_JP_HL;
+
+    m_opcodeTable[0xF3] = &Z80::OP_DI;
+    m_opcodeTable[0x10] = &Z80::OP_DJNZ;
+
+    m_opcodeTable[0xD3] = &Z80::OP_OUT_n_A;
+    m_opcodeTable[0xFB] = &Z80::OP_EI;
+    m_opcodeTable[0xFA] = &Z80::OP_JP_M_nn;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -249,13 +271,18 @@ void Z80::OP_NotImplemented() {
     // Ottieni l'opcode dell'istruzione precedente
     uint8_t opcode = m_memory->Read(PC - 1);
 
-    // Puoi stampare un messaggio
-    printf("Opcode non implementato: 0x%02X at PC=0x%04X\n", opcode, PC - 1);
+    std::cerr << "\n❌ FATAL: Opcode non implementato: 0x"
+        << std::hex << std::setfill('0') << std::setw(2)
+        << (int)opcode << std::dec
+        << " at PC=0x" << std::hex << (PC - 1) << std::dec << "\n";
+    std::cerr << "Registri:\n";
+    std::cerr << "  A=0x" << std::hex << (int)A << std::dec << "\n";
+    std::cerr << "  BC=0x" << std::hex << BC.pair << std::dec << "\n";
+    std::cerr << "  DE=0x" << std::hex << DE.pair << std::dec << "\n";
+    std::cerr << "  HL=0x" << std::hex << HL.pair << std::dec << "\n";
+    std::cerr << "  SP=0x" << std::hex << SP << std::dec << "\n";
 
-    // O lanciare un'eccezione per fermare l'esecuzione
-    // throw std::runtime_error("Opcode not implemented");
-
-    m_cyclesLastInstruction = 4;  // Ciclo di default
+    throw std::runtime_error("Unimplemented opcode encountered!");
 }
 
 void Z80::OP_NOP() {
@@ -677,6 +704,126 @@ void Z80::OP_ED_Prefix()
     case 0x0A: { ADC_HL(reg); break; }
     case 0x0B: { LD_rr_pnn(reg); break; }
     }
+}
+
+void Z80::OP_RST_00()
+{
+    PUSH_16bit(PC);
+    PC = 0x00;
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_RST_08()
+{
+    PUSH_16bit(PC);
+    PC = 0x08;
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_RST_10()
+{
+    PUSH_16bit(PC);
+    PC = 0x10;
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_RST_18()
+{
+    PUSH_16bit(PC);
+    PC = 0x18;
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_RST_20()
+{
+    PUSH_16bit(PC);
+    PC = 0x20;
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_RST_28()
+{
+    PUSH_16bit(PC);
+    PC = 0x28;
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_RST_30()
+{
+    PUSH_16bit(PC);
+    PC = 0x30;
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_RST_38()
+{
+    PUSH_16bit(PC);
+    PC = 0x38;
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_EX_DE_HL()
+{
+    RegisterPair temp = DE;
+    DE = HL;
+    HL = temp;
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_JP_HL()
+{
+    PC = HL.pair;
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_DI()
+{
+    // Disabilita interrupt - per ora ignora
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_DJNZ()
+{
+    BC.high--;  // Decrementa B
+
+    if (BC.high != 0) {
+        // Salta: leggi offset relativo e salta
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        PC += offset;
+        m_cyclesLastInstruction = 13;  // Se salta
+    }
+    else {
+        // Non salta: PC punta già al prossimo byte
+        PC++;  // Salta l'operando offset
+        m_cyclesLastInstruction = 8;   // Se non salta
+    }
+}
+
+void Z80::OP_OUT_n_A()
+{
+    uint8_t port = m_memory->Read(PC++);
+    // Per ora ignora - non abbiamo I/O ports implementati
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_EI()
+{
+    // Abilita interrupt - per ora ignora
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_JP_M_nn()
+{
+    uint8_t low = m_memory->Read(PC++);
+    uint8_t high = m_memory->Read(PC++);
+    uint16_t address = (high << 8) | low;
+
+    if (GetFlag(FLAG_S)) {  // Se Sign flag è settato (negativo)
+        PC = address;
+    }
+    // Altrimenti PC continua normalmente
+
+    m_cyclesLastInstruction = 10;
 }
 
 void Z80::OP_AND_n()

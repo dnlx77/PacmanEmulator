@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include <SFML/Graphics.hpp>
+#include <CPU/Z80.h>
 #include <memory>
 #include <string>
 
@@ -32,11 +33,12 @@ public:
     void Reset();
 
     MemoryBus &GetMemory() const { return *m_memory; }
+    Z80 *GetCPU() { return m_cpu.get(); }
 
 private:
     std::unique_ptr<MemoryBus> m_memory;
     // Componenti dell'emulatore (commentiamo per ora, li aggiungeremo dopo)
-    // std::unique_ptr<Z80> m_cpu;
+    std::unique_ptr<Z80> m_cpu;
     // std::unique_ptr<VideoController> m_video;
 
     // SFML

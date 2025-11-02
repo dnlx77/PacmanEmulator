@@ -31,7 +31,8 @@ bool PacmanEmulator::Initialize()
     m_memory->Initialize();
 
     // TODO: Inizializza CPU Z80
-    // m_cpu = std::make_unique<Z80>(m_cpu.get());
+    m_cpu = std::make_unique<Z80>(m_memory.get());
+    m_cpu->Reset();
 
     // TODO: Inizializza VideoController
     // m_video = std::make_unique<VideoController>(m_memory.get());
@@ -92,6 +93,13 @@ void PacmanEmulator::Run()
 
         if (!m_isPaused)
         {
+            int cycleThisFrame = 0;
+            while (cycleThisFrame < CPU_CYCLES_PER_FRAME)
+            {
+                int cycles = m_cpu->Step();
+                cycleThisFrame += cycles;
+            }
+
             Update(deltaTime);
         }
 

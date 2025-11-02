@@ -251,6 +251,27 @@ private:
 
 	// ED
 	void OP_ED_Prefix();
+
+	// RST
+	void OP_RST_00();
+	void OP_RST_08();
+	void OP_RST_10();
+	void OP_RST_18();
+	void OP_RST_20();
+	void OP_RST_28();
+	void OP_RST_30();
+	void OP_RST_38();
+
+	void OP_EX_DE_HL();
+	void OP_JP_HL();
+
+	void OP_DI();
+	void OP_DJNZ();
+
+	void OP_OUT_n_A();
+	void OP_EI();
+	void OP_JP_M_nn();
+
 					  
 	// Helper functions per operazioni comuni
 	void INC_r(uint8_t &reg);								// Incremento 8-bit

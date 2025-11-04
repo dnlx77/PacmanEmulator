@@ -9,6 +9,8 @@ Z80::Z80(MemoryBus *memory) : m_memory(memory) {
         throw std::invalid_argument("Memory pointer cannot be null!");
     }
     Reset();
+    m_interruptMode = 1;
+    m_interruptsEnabled = false;
 
     // inizializza register map
     m_registerMap[0] = &BC.high; // B
@@ -72,6 +74,7 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0x83] = &Z80::OP_ADD_A_E;
     m_opcodeTable[0x84] = &Z80::OP_ADD_A_H;
     m_opcodeTable[0x85] = &Z80::OP_ADD_A_L;
+    m_opcodeTable[0x86] = &Z80::OP_ADD_A_HL;
     m_opcodeTable[0x87] = &Z80::OP_ADD_A_A;
 
     // SUB A,r opcodes
@@ -81,6 +84,7 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0x93] = &Z80::OP_SUB_A_E;
     m_opcodeTable[0x94] = &Z80::OP_SUB_A_H;
     m_opcodeTable[0x95] = &Z80::OP_SUB_A_L;
+    m_opcodeTable[0x96] = &Z80::OP_SUB_A_HL;
     m_opcodeTable[0x97] = &Z80::OP_SUB_A_A;
 
     // LD r, r
@@ -95,6 +99,7 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0xA3] = &Z80::OP_AND_A_E;
     m_opcodeTable[0xA4] = &Z80::OP_AND_A_H;
     m_opcodeTable[0xA5] = &Z80::OP_AND_A_L;
+    m_opcodeTable[0xA6] = &Z80::OP_AND_A_HL;
     m_opcodeTable[0xA7] = &Z80::OP_AND_A_A;
 
     // XOR A,r opcodes
@@ -104,6 +109,7 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0xAB] = &Z80::OP_XOR_A_E;
     m_opcodeTable[0xAC] = &Z80::OP_XOR_A_H;
     m_opcodeTable[0xAD] = &Z80::OP_XOR_A_L;
+    m_opcodeTable[0xAE] = &Z80::OP_XOR_A_HL;
     m_opcodeTable[0xAF] = &Z80::OP_XOR_A_A;
 
     // OR A,r opcodes
@@ -112,7 +118,7 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0xB2] = &Z80::OP_OR_A_D;
     m_opcodeTable[0xB3] = &Z80::OP_OR_A_E;
     m_opcodeTable[0xB4] = &Z80::OP_OR_A_H;
-    m_opcodeTable[0xB5] = &Z80::OP_OR_A_L;
+    m_opcodeTable[0xB6] = &Z80::OP_OR_A_HL;
     m_opcodeTable[0xB7] = &Z80::OP_OR_A_A;
 
     // CP A,r opcodes
@@ -122,6 +128,7 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0xBB] = &Z80::OP_CP_A_E;
     m_opcodeTable[0xBC] = &Z80::OP_CP_A_H;
     m_opcodeTable[0xBD] = &Z80::OP_CP_A_L;
+    m_opcodeTable[0xBE] = &Z80::OP_CP_A_HL;
     m_opcodeTable[0xBF] = &Z80::OP_CP_A_A;
 
     // Jump assoluti
@@ -234,6 +241,12 @@ void Z80::InitOpcodeTable() {
     // ED
     m_opcodeTable[0xED] = &Z80::OP_ED_Prefix;
 
+    // DD
+    m_opcodeTable[0xDD] = &Z80::OP_DD_Prefix;
+
+    // FD
+    m_opcodeTable[0xFD] = &Z80::OP_FD_Prefix;
+
     // RST
     m_opcodeTable[0xC7] = &Z80::OP_RST_00;  
     m_opcodeTable[0xCF] = &Z80::OP_RST_08;  
@@ -253,6 +266,12 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0xD3] = &Z80::OP_OUT_n_A;
     m_opcodeTable[0xFB] = &Z80::OP_EI;
     m_opcodeTable[0xFA] = &Z80::OP_JP_M_nn;
+    m_opcodeTable[0x0F] = &Z80::OP_RRCA;
+    m_opcodeTable[0xD9] = &Z80::OP_EXX;
+    m_opcodeTable[0x2F] = &Z80::OP_CPL;
+    m_opcodeTable[0x07] = &Z80::OP_RLCA;
+    m_opcodeTable[0x34] = &Z80::OP_INC_pHL;
+    m_opcodeTable[0x35] = &Z80::OP_DEC_pHL;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -271,7 +290,7 @@ void Z80::OP_NotImplemented() {
     // Ottieni l'opcode dell'istruzione precedente
     uint8_t opcode = m_memory->Read(PC - 1);
 
-    std::cerr << "\n❌ FATAL: Opcode non implementato: 0x"
+    std::cerr << "\nFATAL: Opcode non implementato: 0x"
         << std::hex << std::setfill('0') << std::setw(2)
         << (int)opcode << std::dec
         << " at PC=0x" << std::hex << (PC - 1) << std::dec << "\n";
@@ -325,6 +344,11 @@ void Z80::OP_ADD_A_D() { ADD_A_r(DE.high); }
 void Z80::OP_ADD_A_E() { ADD_A_r(DE.low); }
 void Z80::OP_ADD_A_H() { ADD_A_r(HL.high); }
 void Z80::OP_ADD_A_L() { ADD_A_r(HL.low); }
+void Z80::OP_ADD_A_HL()
+{
+    ADD_A_r(m_memory->Read(HL.pair));
+    m_cyclesLastInstruction = 7;
+}
 
 // SUB A, r opcodes
 void Z80::OP_SUB_A_A() { SUB_A_r(A); }
@@ -334,6 +358,11 @@ void Z80::OP_SUB_A_D() { SUB_A_r(DE.high); }
 void Z80::OP_SUB_A_E() { SUB_A_r(DE.low); }
 void Z80::OP_SUB_A_H() { SUB_A_r(HL.high); }
 void Z80::OP_SUB_A_L() { SUB_A_r(HL.low); }
+void Z80::OP_SUB_A_HL()
+{
+    SUB_A_r(m_memory->Read(HL.pair));
+    m_cyclesLastInstruction = 7;
+}
 
 void Z80::OP_LD_r_r()
 {
@@ -366,6 +395,7 @@ void Z80::OP_LD_r_r()
 void Z80::OP_HALT()
 {
     printf("Esecuzione opcode HALT");
+    m_halted = true;
     m_cyclesLastInstruction = 4;
 }
 
@@ -414,6 +444,11 @@ void Z80::OP_AND_A_D() { AND_A_r(DE.high); }
 void Z80::OP_AND_A_E() { AND_A_r(DE.low); }
 void Z80::OP_AND_A_H() { AND_A_r(HL.high); }
 void Z80::OP_AND_A_L() { AND_A_r(HL.low); }
+void Z80::OP_AND_A_HL()
+{
+    AND_A_r(m_memory->Read(HL.pair));
+    m_cyclesLastInstruction = 7;
+}
 
 // ========== XOR A,r opcodes ==========
 void Z80::OP_XOR_A_A() { XOR_A_r(A); }
@@ -423,6 +458,11 @@ void Z80::OP_XOR_A_D() { XOR_A_r(DE.high); }
 void Z80::OP_XOR_A_E() { XOR_A_r(DE.low); }
 void Z80::OP_XOR_A_H() { XOR_A_r(HL.high); }
 void Z80::OP_XOR_A_L() { XOR_A_r(HL.low); }
+void Z80::OP_XOR_A_HL()
+{
+    XOR_A_r(m_memory->Read(HL.pair));
+    m_cyclesLastInstruction = 7;
+}
 
 // ========== OR A,r opcodes ==========
 void Z80::OP_OR_A_A() { OR_A_r(A); }
@@ -432,6 +472,11 @@ void Z80::OP_OR_A_D() { OR_A_r(DE.high); }
 void Z80::OP_OR_A_E() { OR_A_r(DE.low); }
 void Z80::OP_OR_A_H() { OR_A_r(HL.high); }
 void Z80::OP_OR_A_L() { OR_A_r(HL.low); }
+void Z80::OP_OR_A_HL()
+{
+    OR_A_r(m_memory->Read(HL.pair));
+    m_cyclesLastInstruction = 7;
+}
 
 // ========== CP A,r opcodes ==========
 void Z80::OP_CP_A_A() { CP_A_r(A); }
@@ -441,6 +486,11 @@ void Z80::OP_CP_A_D() { CP_A_r(DE.high); }
 void Z80::OP_CP_A_E() { CP_A_r(DE.low); }
 void Z80::OP_CP_A_H() { CP_A_r(HL.high); }
 void Z80::OP_CP_A_L() { CP_A_r(HL.low); }
+void Z80::OP_CP_A_HL()
+{
+    CP_A_r(m_memory->Read(HL.pair));
+    m_cyclesLastInstruction = 7;
+}
 
 void Z80::OP_CALL_nn()
 {
@@ -670,6 +720,42 @@ void Z80::OP_ED_Prefix()
 {
     uint8_t ed_opcode = m_memory->Read(PC++);
 
+    // IM 0 = 0xED 0x46
+    if (ed_opcode == 0x46) {
+        m_interruptMode = 0;
+        m_cyclesLastInstruction = 8;
+        return;
+    }
+
+    if (ed_opcode == 0x47) {
+        // LD I, A
+        I = A;
+        //printf(">>> LD I, A: I = 0x%02X\n", I);
+        m_cyclesLastInstruction = 9;
+        return;
+    }
+
+    // IM 1 = 0xED 0x56
+    if (ed_opcode == 0x56) {
+        m_interruptMode = 1;
+        m_cyclesLastInstruction = 8;
+        return;
+    }
+
+    // IM 2 = 0xED 0x5E
+    if (ed_opcode == 0x5E) {
+        m_interruptMode = 2;
+        //printf(">>> IM 2 set! I register will be: 0x%02X\n", I);
+        m_cyclesLastInstruction = 8;
+        return;
+    }
+
+    // RETI = 0xED 0x4D
+    if (ed_opcode == 0x4D) {
+        OP_RETI();
+        return;
+    }
+
     // Caso speciale per NEG (0x44)
     if (ed_opcode == 0x44) {
         NEG();
@@ -703,6 +789,309 @@ void Z80::OP_ED_Prefix()
     case 0x03: { LD_pnn_rr(reg); break; }
     case 0x0A: { ADC_HL(reg); break; }
     case 0x0B: { LD_rr_pnn(reg); break; }
+    }
+}
+
+void Z80::OP_DD_Prefix()
+{
+    uint8_t dd_opcode = m_memory->Read(PC++);
+
+    switch (dd_opcode) {
+    case 0x21: {
+        // LD IX, nn
+        LD_rr_nn(IX);
+        m_cyclesLastInstruction = 14;
+        break;
+    }
+    case 0x7E: {
+        // LD A, (IX+d)
+        LD_r_pIXOffset(A);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x77: {
+        // LD (IX+d), A
+        LD_pIXOffset_r(A);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x34: {
+        // INC (IX + d)
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint16_t address = IX + offset;
+        INC_Memory(address);
+
+        m_cyclesLastInstruction = 23;
+        break;
+    }
+    case 0x35: {
+        // DEC (IX + d)
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint16_t address = IX + offset;
+        DEC_Memory(address);
+
+        m_cyclesLastInstruction = 23;
+        break;
+    }
+    case 0x23: {
+        // INC IX
+        INC_rr(IX);
+
+        m_cyclesLastInstruction = 10;
+        break;
+    }
+    case 0x2B: {
+        // DEC IX
+        DEC_rr(IX);
+
+        m_cyclesLastInstruction = 10;
+        break;
+    }
+    case 0x09: {
+        // ADD IX,BC
+        ADD_IX_rr(BC.pair);
+
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x19: {
+        // ADD IX, DE
+        ADD_IX_rr(DE.pair);
+
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x29: {
+        // ADD IX, IX
+        ADD_IX_rr(IX);
+
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x39: {
+        // ADD IX, SP
+        ADD_IX_rr(SP);
+
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x6E: {
+        // LD L, (IX+d)
+        LD_r_pIXOffset(HL.low);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x75: {
+        // LD (IX+d), L
+        LD_pIXOffset_r(HL.low);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0xA6: {
+        // AND A, (IX+d)
+        AND_r_pIXOffset(A);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0xE5: {
+        // PUSH IX
+        PUSH_16bit(IX);
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0xE1: {
+        // POP IX
+        IX = POP_16bit();
+        m_cyclesLastInstruction = 14;
+        break;
+    }
+    case 0x73: {
+        // LD (IX+d), E
+        LD_pIXOffset_r(DE.low);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x70: {
+        // LD (IX+d), B
+        LD_pIXOffset_r(BC.high);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x36: {
+        // LD (IX+d), n
+        LD_pIXOffset_n();
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x86: {
+        // ADD A, (IX+d)
+        ADD_r_pIXOffset();
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0xCB: {
+        // DD 0xCB [offset] [cb_opcode]
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint8_t cb_opcode = m_memory->Read(PC++);
+
+        uint8_t operation = (cb_opcode >> 3) & 0x07;  // bit 3-7: operazione
+
+        // Dispatch basato su operation (come CB normale)
+        if (cb_opcode < 0x40) {
+            // 0x00-0x3F: Rotate/Shift su (IX+d)
+            HandleRotateShift_pIXOffset(operation, offset);
+        }
+        else if (cb_opcode < 0x80) {
+            // 0x40-0x7F: BIT su (IX+d)
+            HandleBit_pIXOffset(operation, offset);
+        }
+        else if (cb_opcode < 0xC0) {
+            // 0x80-0xBF: RES su (IX+d)
+            HandleRes_pIXOffset(operation, offset);
+        }
+        else {
+            // 0xC0-0xFF: SET su (IX+d)
+            HandleSet_pIXOffset(operation, offset);
+        }
+        break;
+    }
+
+    default: {
+        std::cerr << "Unimplemented DD opcode: 0x" << std::hex
+            << std::setfill('0') << std::setw(2)
+            << (int)dd_opcode << std::dec
+            << " at PC=0x" << std::hex << (PC - 1) << std::dec << "\n";
+        m_cyclesLastInstruction = 4;
+        break;
+    }
+    }
+}
+
+void Z80::OP_FD_Prefix()
+{
+    uint8_t fd_opcode = m_memory->Read(PC++);
+
+    switch (fd_opcode) {
+    case 0x21: {
+        // LD IY, nn
+        LD_rr_nn(IY);
+        m_cyclesLastInstruction = 14;
+        break;
+    }
+    case 0x7E: {
+        // LD A, (IY+d)
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint16_t address = IY + offset;
+        A = m_memory->Read(address);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x77: {
+        // LD (IY+d), A
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint16_t address = IY + offset;
+        m_memory->Write(address, A);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x34: {
+        // INC (IY + d)
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint16_t address = IY + offset;
+        INC_Memory(address);
+
+        m_cyclesLastInstruction = 23;
+        break;
+    }
+    case 0x35: {
+        // DEC (IY + d)
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint16_t address = IY + offset;
+        DEC_Memory(address);
+
+        m_cyclesLastInstruction = 23;
+        break;
+    }
+    case 0x36: {
+        // LD (IX+d), n
+        LD_pIYOffset_n();
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x23: {
+        // INC IY
+        INC_rr(IY);
+
+        m_cyclesLastInstruction = 10;
+        break;
+    }
+    case 0x2B: {
+        // DEC IY
+        DEC_rr(IY);
+
+        m_cyclesLastInstruction = 10;
+        break;
+    }
+    case 0x09: {
+        // ADD IY,BC
+        ADD_IY_rr(BC.pair);
+
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x19: {
+        // ADD IY, DE
+        ADD_IY_rr(DE.pair);
+
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x29: {
+        // ADD IY, IX
+        ADD_IY_rr(IY);
+
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x39: {
+        // ADD IY, SP
+        ADD_IY_rr(SP);
+
+        m_cyclesLastInstruction = 15;
+        break;
+    default: {
+        std::cerr << "Unimplemented FD opcode: 0x" << std::hex
+            << std::setfill('0') << std::setw(2)
+            << (int)fd_opcode << std::dec
+            << " at PC=0x" << std::hex << (PC - 1) << std::dec << "\n";
+        m_cyclesLastInstruction = 4;
+        break;
+    }
+    }
+    case 0xE5: {
+        // PUSH IY
+        PUSH_16bit(IY);
+        m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x74: {
+        // LD (IY+d), H
+        LD_pIYOffset_r(HL.high);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x75: {
+        // LD (IY+d), L
+        LD_pIYOffset_r(HL.low);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0xE1: {
+        // POP IY
+        IY = POP_16bit();
+        m_cyclesLastInstruction = 14;
+        break;
+    }
     }
 }
 
@@ -802,13 +1191,19 @@ void Z80::OP_DJNZ()
 void Z80::OP_OUT_n_A()
 {
     uint8_t port = m_memory->Read(PC++);
-    // Per ora ignora - non abbiamo I/O ports implementati
+
+    if (port == 0x00) {
+        m_interruptVector = A;
+        printf(">>> OUT (0x00), A: Interrupt vector set to 0x%02X\n", A);
+    }
+
     m_cyclesLastInstruction = 11;
 }
 
 void Z80::OP_EI()
 {
-    // Abilita interrupt - per ora ignora
+    std::cout << ">>> EI opcode executed! interruptEnabled = true\n";
+    m_interruptsEnabled = true;
     m_cyclesLastInstruction = 4;
 }
 
@@ -860,6 +1255,75 @@ void Z80::OP_LD_HL_n()
     m_memory->Write(HL.pair, n);
 
     m_cyclesLastInstruction = 12;
+}
+
+void Z80::OP_RETI() 
+{
+    uint16_t return_addr = POP_16bit();
+
+    PC = return_addr;
+    m_interruptsEnabled = true;
+    m_cyclesLastInstruction = 14;
+}
+
+void Z80::OP_RRCA() {
+    // Rotate Right Circular Accumulator
+    uint8_t bit0 = A & 0x01;
+    A = (A >> 1) | (bit0 << 7);
+
+    SetFlag(FLAG_C, bit0 != 0);
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_N, false);
+    // Z e S non vengono modificati
+
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_EXX() {
+    // Scambia BC, DE, HL con BC', DE', HL'
+    // (NON scambia AF/AF')
+
+    std::swap(BC, BC_alt);
+    std::swap(DE, DE_alt);
+    std::swap(HL, HL_alt);
+
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_CPL()
+{
+    A ^= 0xFF;
+
+    SetFlag(FLAG_H, true);
+    SetFlag(FLAG_N, true);
+
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_RLCA()
+{
+    uint8_t bit7 = (A & 0x80) >> 7;
+    A = (A << 1) | bit7;
+
+    SetFlag(FLAG_H, false);
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, bit7 != 0);
+
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_INC_pHL() 
+{
+    INC_Memory(HL.pair);
+
+    m_cyclesLastInstruction = 11;
+}
+
+void Z80::OP_DEC_pHL()
+{
+    DEC_Memory(HL.pair);
+
+    m_cyclesLastInstruction = 11;
 }
 
 void Z80::INC_r(uint8_t &reg) {
@@ -1122,6 +1586,50 @@ void Z80::ADD_HL_rr(uint16_t reg)
     m_cyclesLastInstruction = 11;
 }
 
+void Z80::ADD_IX_rr(uint16_t reg)
+{
+    uint16_t oldIX = IX;
+
+    uint32_t result = (IX + reg);
+
+    IX = result & 0xFFFF;
+
+    SetFlag(FLAG_C, result > 0xFFFF);
+    SetFlag(FLAG_H, ((oldIX & 0x0FFF) + (reg & 0x0FFF)) > 0x0FFF);
+    SetFlag(FLAG_N, false);
+
+    m_cyclesLastInstruction = 15;
+}
+
+void Z80::ADD_IY_rr(uint16_t reg)
+{
+    uint16_t oldIY = IY;
+
+    uint32_t result = (IY + reg);
+
+    IY = result & 0xFFFF;
+
+    SetFlag(FLAG_C, result > 0xFFFF);
+    SetFlag(FLAG_H, ((oldIY & 0x0FFF) + (reg & 0x0FFF)) > 0x0FFF);
+    SetFlag(FLAG_N, false);
+
+    m_cyclesLastInstruction = 15;
+}
+
+void Z80::INC_Memory(uint16_t address)
+{
+    uint8_t value = m_memory->Read(address);
+    INC_r(value); // Incrementa e aggiorna flag
+    m_memory->Write(address, value);
+}
+
+void Z80::DEC_Memory(uint16_t address)
+{
+    uint8_t value = m_memory->Read(address);
+    DEC_r(value); // Incrementa e aggiorna flag
+    m_memory->Write(address, value);
+}
+
 void Z80::LD_A_indirect(uint16_t address)
 {
     A = m_memory->Read(address);
@@ -1316,6 +1824,52 @@ void Z80::HandleSet(uint8_t bit_number, uint8_t reg)
 
         m_cyclesLastInstruction = 8;
     }
+}
+
+void Z80::HandleRotateShift_pIXOffset(uint8_t operation, int8_t offset)
+{
+    std::cerr << "HandleRotateShift_pIXOffset called: operation=0x"
+        << std::hex << (int)operation << " offset=" << (int)offset << std::dec << "\n";
+    // TODO: Implementare rotate/shift su (IX+d)
+    m_cyclesLastInstruction = 23;
+}
+
+void Z80::HandleBit_pIXOffset(uint8_t bit_number, int8_t offset)
+{
+    uint16_t address = IX + offset;
+    uint8_t value = m_memory->Read(address);
+
+    bool bit_value = (value & (1 << bit_number)) != 0;
+
+    SetFlag(FLAG_Z, !bit_value);
+    SetFlag(FLAG_H, true);
+    SetFlag(FLAG_N, false);
+    SetFlag(FLAG_PV, !bit_value);
+
+    if (bit_number == 7) {
+        SetFlag(FLAG_S, bit_value);
+    }
+    else {
+        SetFlag(FLAG_S, false);
+    }
+
+    m_cyclesLastInstruction = 20;  // Operazioni memoria costano più cicli
+}
+
+void Z80::HandleRes_pIXOffset(uint8_t operation, int8_t offset)
+{
+    std::cerr << "HandleRes_pIXOffset called: operation=0x"
+        << std::hex << (int)operation << " offset=" << (int)offset << std::dec << "\n";
+    // TODO: Implementare RES su (IX+d)
+    m_cyclesLastInstruction = 23;
+}
+
+void Z80::HandleSet_pIXOffset(uint8_t operation, int8_t offset)
+{
+    std::cerr << "HandleSet_pIXOffset called: operation=0x"
+        << std::hex << (int)operation << " offset=" << (int)offset << std::dec << "\n";
+    // TODO: Implementare SET su (IX+d)
+    m_cyclesLastInstruction = 23;
 }
 
 void Z80::CB_RLC(uint8_t &reg)
@@ -1663,6 +2217,65 @@ void Z80::CPDR() {
     }
 }
 
+void Z80::LD_r_pIXOffset(uint8_t &reg)
+{
+    int8_t offset = (int8_t)m_memory->Read(PC++);
+    uint16_t address = IX + offset;
+    reg = m_memory->Read(address);
+}
+
+void Z80::LD_pIXOffset_r(const uint8_t reg)
+{
+    int8_t offset = (int8_t)m_memory->Read(PC++);
+    uint16_t address = IX + offset;
+    m_memory->Write(address, reg);
+}
+
+void Z80::LD_pIYOffset_r(const uint8_t reg)
+{
+    int8_t offset = (int8_t)m_memory->Read(PC++);
+    uint16_t address = IY + offset;
+    m_memory->Write(address, reg);
+}
+
+void Z80::LD_pIXOffset_n()
+{
+    int8_t offset = (int8_t)m_memory->Read(PC++);
+    uint8_t value = m_memory->Read(PC++);
+    uint16_t address = IX + offset;
+    m_memory->Write(address, value);
+}
+
+void Z80::LD_pIYOffset_n()
+{
+    int8_t offset = (int8_t)m_memory->Read(PC++);
+    uint8_t value = m_memory->Read(PC++);
+    uint16_t address = IY + offset;
+    m_memory->Write(address, value);
+}
+
+void Z80::AND_r_pIXOffset(uint8_t &reg)
+{
+    int8_t offset = (int8_t)m_memory->Read(PC++);
+    uint16_t address = IX + offset;
+    uint8_t value = m_memory->Read(address);
+    reg &= value;
+    // Aggiorna i flag!
+    SetFlag(FLAG_Z, reg == 0);
+    SetFlag(FLAG_S, (reg & 0x80) != 0);
+    SetFlag(FLAG_H, true);
+    SetFlag(FLAG_PV, CalculateParity(reg));  // Parità
+    SetFlag(FLAG_N, false);
+}
+
+void Z80::ADD_r_pIXOffset()
+{
+    int8_t offset = (int8_t)m_memory->Read(PC++);
+    uint16_t address = IX + offset;
+    uint8_t value = m_memory->Read(address);
+    ADD_A_r(value);
+}
+
 void Z80::PUSH_16bit(uint16_t value)
 {
     uint8_t low = value & 0xFF;
@@ -1678,6 +2291,35 @@ uint16_t Z80::POP_16bit()
     uint8_t high = m_memory->Read(SP++);
     uint16_t address = (high << 8) | low;
     return address;
+}
+
+void Z80::Interrupt() {
+    if (!m_interruptsEnabled) return;
+
+    m_halted = false;
+    m_interruptsEnabled = false;
+
+    PUSH_16bit(PC);
+
+    if (m_interruptMode == 2) {
+        // Usa il vettore scritto tramite OUT (0),A
+        uint16_t vector_addr = (I << 8) | m_interruptVector;
+
+        uint8_t low = m_memory->Read(vector_addr);
+        uint8_t high = m_memory->Read(vector_addr + 1);
+        uint16_t handler_addr = (high << 8) | low;
+
+        /*printf(">>> Mode 2 INT: I=0x%02X, vec=0x%02X, addr=0x%04X -> handler=0x%04X\n",
+            I, m_interruptVector, vector_addr, handler_addr);*/
+
+        PC = handler_addr;
+        m_totalCycles += 19;
+    }
+    else {
+        // Mode 1: va a 0x0038
+        PC = 0x0038;
+        m_totalCycles += 13;
+    }
 }
 
 void Z80::Reset() {
@@ -1747,8 +2389,15 @@ void Z80::ExchangeAll()
 
 int Z80::Step()
 {
+    // Se in HALT, non eseguire nulla finché non arriva un interrupt
+    if (m_halted) {
+        m_cyclesLastInstruction = 4;
+        m_totalCycles += 4;
+        return 4; // Consuma comunque cicli
+    }
+
     uint8_t opcode = m_memory->Read(PC++);
-    printf("DEBUG: Executing opcode 0x%02X at PC 0x%04X\n", opcode, PC - 1);
+    //printf("DEBUG: Executing opcode 0x%02X at PC 0x%04X\n", opcode, PC - 1);
     (this->*m_opcodeTable[opcode])();
     m_totalCycles += m_cyclesLastInstruction;
     return m_cyclesLastInstruction;

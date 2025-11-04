@@ -25,13 +25,13 @@ std::array<uint32_t, 64> TileDecoder::DecodeTile(uint8_t tile_index, uint8_t pal
 
 uint32_t TileDecoder::ConvertPaletteByteToRGBA(uint8_t palette_byte)
 {
-	uint8_t blue_3bit = (palette_byte & 0xE0) >> 5;
+	uint8_t red_3bit = (palette_byte & 0xE0) >> 5;
 	uint8_t green_3bit = (palette_byte & 0x1C) >> 2;
-	uint8_t red_2bit = palette_byte & 0x03;
+	uint8_t blue_2bit = palette_byte & 0x03;
 
-	uint8_t red_8bit = (red_2bit << 6) | (red_2bit << 4) | (red_2bit << 2) | red_2bit;
-	uint8_t green_8bit = (green_3bit << 5) | (green_3bit << 2) | (green_3bit >> 1);
-	uint8_t blue_8bit = (blue_3bit << 5) | (blue_3bit << 2) | (blue_3bit >> 1);
+	uint8_t red_8bit = red_3bit * 255 / 7;
+	uint8_t green_8bit = green_3bit * 255 / 7;
+	uint8_t blue_8bit = blue_2bit * 255 / 3;
 
 	uint32_t rgba = (red_8bit << 24) | (green_8bit << 16) | (blue_8bit << 8) | 0xFF;
 	return rgba;
@@ -41,13 +41,17 @@ std::array<uint32_t, 8> TileDecoder::DecodeRow(uint8_t plane0, uint8_t plane1, u
 {
 	std::array<uint32_t, 8> decoded_row = {};
 	const uint8_t *paletteData = m_memory.GetGraphicsPalette();
+	const uint8_t *paletteLookup = m_memory.GetGraphicsPaletteLookup();
+
+	// Palette_offset è indice in PALETTE_LOOKUP
+	uint8_t palette_index = paletteLookup[palette_offset];
 
 	for (int col = 0; col < 8; col++) {
 		uint8_t bit0 = (plane0 >> col) & 0x01;
 		uint8_t bit1 = (plane1 >> col) & 0x01;
 		uint8_t pixel_value = (bit1 << 1) | bit0;
 
-		uint8_t palette_byte = paletteData[palette_offset * 16 + pixel_value];
+		uint8_t palette_byte = paletteData[palette_index * 16 + pixel_value];
 		decoded_row[col] = ConvertPaletteByteToRGBA(palette_byte);
 	}
 

@@ -11,4 +11,5 @@ struct ROMFile {
 extern const std::vector<ROMFile> cpuRoms;
 extern const std::vector<ROMFile> graphicRoms;
 extern const ROMFile graphicsPaletteFile;
+extern const ROMFile graphicsPaletteLookupFile;
 

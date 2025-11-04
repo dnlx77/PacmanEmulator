@@ -1,6 +1,7 @@
-#include "Memory/MemoryBus.h"
+﻿#include "Memory/MemoryBus.h"
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 
 MemoryBus::MemoryBus()
 {
@@ -27,26 +28,43 @@ uint8_t MemoryBus::Read(uint16_t address)
 	// Sprite RAM: 0x5000 - 0x50FF
 	if (address <= 0x50FF) return m_SRam[address - 0x5000];
 
-	// Unmapped
+	// Unmapped - STAMPA!
+	std::cerr << "WARNING: Read from unmapped address 0x"
+		<< std::hex << std::setfill('0') << std::setw(4)
+		<< address << std::dec << "\n";
 	return 0xFF;
+	
 }
 
 void MemoryBus::Write(uint16_t address, uint8_t value)
 {
 	// ROM: read-only
-	if (address <= 0x3FFF) return;
+	if (address <= 0x3FFF) {
+		std::cerr << "WARNING: Write to ROM at 0x"
+			<< std::hex << std::setfill('0') << std::setw(4)
+			<< address << " = 0x" << std::setw(2) << (int)value
+			<< std::dec << "\n";
+		return;
+	}
 
 	// Video RAM: 0x4000 - 0x43FF
 	if (address <= 0x43FF) { m_VRam[address - 0x4000] = value; return; }
 
 	// Color RAM: 0x4400 - 0x47FF
 	if (address <= 0x47FF) { m_CRam[address - 0x4400] = value; return; }
+	
 
 	// RAM: 0x4800 - 0x4FFF (con mirroring)
 	if (address <= 0x4FFF) { m_ram[(address - 0x4800) % 0x0400] = value; return; }
 
 	// Sprite RAM: 0x5000 - 0x50FF
 	if (address <= 0x50FF) { m_SRam[address - 0x5000] = value; return; }
+
+	// Unmapped - STAMPA!
+	std::cerr << "WARNING: Write to unmapped address 0x"
+		<< std::hex << std::setfill('0') << std::setw(4)
+		<< address << " = 0x" << std::setw(2) << (int)value
+		<< std::dec << "\n";
 }
 
 void MemoryBus::Initialize() {
@@ -74,13 +92,7 @@ size_t MemoryBus::LoadRom(const std::string &filename, ROMType type, size_t offs
     file.seekg(0, std::ios::beg);
 
     std::cout << "Dimensione file: " << fileSize << " bytes" << std::endl;
-	/*
-    // Verifica dimensione
-    if (fileSize > 0x4000) {
-        std::cerr << "Errore: ROM troppo grande! Max 16KB" << std::endl;
-        file.close();
-        return 0;
-    }*/
+	
 	if (type == ROMType::CPU) {
 		// Leggi i dati
 		file.read(reinterpret_cast<char *>(m_rom.data() + offset), fileSize);
@@ -90,13 +102,9 @@ size_t MemoryBus::LoadRom(const std::string &filename, ROMType type, size_t offs
 	}
 	else if (type == ROMType::GRAPHICS_PALETTE) {
 		file.read(reinterpret_cast<char *>(m_graphicsPalette.data() + offset), fileSize);
-
-		// Stampa primi 16 bytes della palette
-		std::cout << "Palette first 16 bytes: ";
-		for (int i = 0; i < 16; i++) {
-			std::cout << "0x" << std::hex << (int)m_graphicsPalette[i] << " ";
-		}
-		std::cout << std::dec << "\n";
+	}
+	else if (type==ROMType::PALETTE_LOOKUP) {
+		file.read(reinterpret_cast<char *>(m_paletteLookup.data() + offset), fileSize);
 	}
     
 	size_t bytesRead = file.gcount();
@@ -115,4 +123,9 @@ const uint8_t *MemoryBus::GetGraphicsTiles() const
 const uint8_t *MemoryBus::GetGraphicsPalette() const
 {
 	return m_graphicsPalette.data();
+}
+
+const uint8_t *MemoryBus::GetGraphicsPaletteLookup() const
+{
+	return m_paletteLookup.data();
 }

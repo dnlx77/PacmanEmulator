@@ -42,6 +42,12 @@ private:
 	uint8_t *m_registerMap[8];
 	uint16_t *m_register16Map[4];
 
+	uint8_t m_interruptMode = 1;
+	bool m_interruptsEnabled;
+	bool pendingInterrupt;
+	bool m_halted = false;
+	uint8_t m_interruptVector = 0xFF; // Default vector
+
 	// Opcode table
 	using OpcodeFunction = void (Z80::*)();
 	OpcodeFunction m_opcodeTable[256];
@@ -90,6 +96,7 @@ private:
 	void OP_ADD_A_E();
 	void OP_ADD_A_H();
 	void OP_ADD_A_L();
+	void OP_ADD_A_HL();
 
 	// Opcodes handelers - SUB A, r
 	void OP_SUB_A_A();
@@ -99,6 +106,7 @@ private:
 	void OP_SUB_A_E();
 	void OP_SUB_A_H();
 	void OP_SUB_A_L();
+	void OP_SUB_A_HL();
 
 	//Opcode handler unico per LD r, r'
 	void OP_LD_r_r();
@@ -110,7 +118,8 @@ private:
 	void OP_AND_A_D(); 
 	void OP_AND_A_E(); 
 	void OP_AND_A_H(); 
-	void OP_AND_A_L(); 
+	void OP_AND_A_L();
+	void OP_AND_A_HL();
 
 	// Opcode handlers - XOR A,r
 	void OP_XOR_A_A();
@@ -120,6 +129,7 @@ private:
 	void OP_XOR_A_E();
 	void OP_XOR_A_H();
 	void OP_XOR_A_L();
+	void OP_XOR_A_HL();
 
 	// Opcode handlers - OR A,r
 	void OP_OR_A_A();
@@ -129,6 +139,7 @@ private:
 	void OP_OR_A_E();
 	void OP_OR_A_H();
 	void OP_OR_A_L();
+	void OP_OR_A_HL();
 
 	// Opcode handlers - CP A,r
 	void OP_CP_A_A();
@@ -138,6 +149,7 @@ private:
 	void OP_CP_A_E();
 	void OP_CP_A_H();
 	void OP_CP_A_L();
+	void OP_CP_A_HL();
 
 	//Opcode HALT
 	void OP_HALT();
@@ -252,6 +264,12 @@ private:
 	// ED
 	void OP_ED_Prefix();
 
+	// DD
+	void OP_DD_Prefix();
+
+	// FD
+	void OP_FD_Prefix();
+
 	// RST
 	void OP_RST_00();
 	void OP_RST_08();
@@ -272,6 +290,18 @@ private:
 	void OP_EI();
 	void OP_JP_M_nn();
 
+	void OP_RETI();
+
+	void OP_RRCA();
+
+	void OP_EXX();
+
+	void OP_CPL();
+
+	void OP_RLCA();
+
+	void OP_INC_pHL();
+	void OP_DEC_pHL();
 					  
 	// Helper functions per operazioni comuni
 	void INC_r(uint8_t &reg);								// Incremento 8-bit
@@ -294,6 +324,10 @@ private:
 	void INC_rr(uint16_t & reg);							// Inc 16 bit
 	void DEC_rr(uint16_t &reg);								// Dec 16 bit
 	void ADD_HL_rr(uint16_t reg);							// ADD 16 bit
+	void ADD_IX_rr(uint16_t reg);							// ADD 16 bit
+	void ADD_IY_rr(uint16_t reg);							// ADD 16 bit
+	void INC_Memory(uint16_t address);						// Incremente valore in memoria
+	void DEC_Memory(uint16_t address);						// Decremente valore in memoria
 	void LD_A_indirect(uint16_t address);					// Load da memoria indirizzo registro
 	void LD_indirect_A(uint16_t address);					// Store in memoria indirizzo registro
 	void LD_A_addr();										// Load da memoria indirizzo istruzione
@@ -304,6 +338,10 @@ private:
 	void HandleBit(uint8_t bit_number, uint8_t reg);		// Bit operation
 	void HandleRes(uint8_t bit_number, uint8_t reg);		// Bit reset
 	void HandleSet(uint8_t bit_number, uint8_t reg);		// Bit set
+	void HandleRotateShift_pIXOffset(uint8_t operation, int8_t offset);
+	void HandleBit_pIXOffset(uint8_t operation, int8_t offset);
+	void HandleRes_pIXOffset(uint8_t operation, int8_t offset);
+	void HandleSet_pIXOffset(uint8_t operation, int8_t offset);
 	void CB_RLC(uint8_t &reg);								// Rotazione a sinistra con carry
 	void CB_RRC(uint8_t &reg);								// Rotazione a destra con carry
 	void CB_RL(uint8_t &reg);								// Rotazione a sinistra
@@ -325,6 +363,13 @@ private:
 	void CPIR();											// Compare and increment repeat
 	void CPD();												// Compare and decrement
 	void CPDR();											// Compare and decrement repeat
+	void LD_r_pIXOffset(uint8_t &reg);						// Legge da memoria a indirizzo IX+offset e mette in r
+	void LD_pIXOffset_r(const uint8_t reg);					// Scrive in memoria a indirizzo IX+offset registo r
+	void LD_pIYOffset_r(const uint8_t reg);					// Scrive in memoria a indirizzo IY+offset registo r
+	void LD_pIXOffset_n();									// Scrive in memoria a indirizzo IX+offset il valore contenuto nell'opcode
+	void LD_pIYOffset_n();									// Scrive in memoria a indirizzo IY+offset il valore contenuto nell'opcode
+	void AND_r_pIXOffset(uint8_t &reg);						// And tra r e valore in memoria a IX+offset
+	void ADD_r_pIXOffset();						// Add tra r e valore in memoria a IX+offset
 
 	// Helper functions per stack
 	void PUSH_16bit(uint16_t value);
@@ -346,6 +391,8 @@ public:
 	uint64_t GetTotalCycles() const { return m_totalCycles; }
 	void ResetCycles() { m_totalCycles = 0; }
 
+	void Interrupt();
+
 #ifdef _DEBUG
 	// Debug getters
 	uint16_t GetHL() const { return HL.pair; }
@@ -354,6 +401,7 @@ public:
 	uint8_t GetF() const { return F; }
 	uint16_t GetBC() const { return BC.pair; }
 	uint16_t GetPC() const { return PC; }
+	uint8_t GetI() const { return I; }
 
 	// Debug setters
 	void SetHL(uint16_t value) { HL.pair = value; }
@@ -368,5 +416,11 @@ public:
 
 	// Flag access
 	bool GetterFlag(uint8_t flag) const { return (F & flag) != 0; }
+
+	uint8_t GetInterruptMode() const { return m_interruptMode; }
+	bool AreInterruptsEnabled() const { return m_interruptsEnabled; }
+	bool GetPendingInterrupt() const { return pendingInterrupt; }
+	void SetInterruptEnabled(bool value) { m_interruptsEnabled = value; }
+	uint8_t GetInterruptVector() const { return m_interruptVector; }
 #endif
 };

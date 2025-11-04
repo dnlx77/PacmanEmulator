@@ -74,6 +74,14 @@ bool PacmanEmulator::LoadRomSet(const std::string &romDir)
         return false;
     }
 
+    // Caricamento palette lookup rom
+    bytesRead = m_memory->LoadRom(romDir + "/" + graphicsPaletteLookupFile.filename, MemoryBus::ROMType::PALETTE_LOOKUP, graphicsPaletteLookupFile.offset);
+
+    if (bytesRead != graphicsPaletteLookupFile.expectedSize) {
+        std::cerr << "Failed: " << graphicsPaletteLookupFile.filename << " (read " << bytesRead << " bytes, expected " << graphicsPaletteLookupFile.expectedSize << ")\n";
+        return false;
+    }
+
     std::cout << "PacmanEmulator: ROMset caricato con successo!" << std::endl;
     return true;
 }

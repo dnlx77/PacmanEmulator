@@ -19,3 +19,5 @@ const std::vector<ROMFile> graphicRoms = {
 };
 
 const ROMFile graphicsPaletteFile = { "pm1-3.1m", 0x0000, 0x0100 };
+
+const ROMFile graphicsPaletteLookupFile = { "pm1-4.4a", 0x0000, 0x0100 };

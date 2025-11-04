@@ -14,12 +14,14 @@ private:
 	std::array<uint8_t, 0X100> m_SRam;		// Sprite ram
 	std::array<uint8_t, 0x2000> m_graphicsTiles;
 	std::array<uint8_t, 0x100> m_graphicsPalette;
+	std::array<uint8_t, 0x100> m_paletteLookup;
 
 public:
 	enum class ROMType {
 		CPU,
 		GRAPHICS_TILES,
-		GRAPHICS_PALETTE
+		GRAPHICS_PALETTE,
+		PALETTE_LOOKUP
 	};
 
 	MemoryBus();
@@ -33,4 +35,5 @@ public:
 	// Getter per VideoController
 	const uint8_t *GetGraphicsTiles() const;
 	const uint8_t *GetGraphicsPalette() const;
+	const uint8_t *GetGraphicsPaletteLookup() const;
 };

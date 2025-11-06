@@ -390,6 +390,7 @@ public:
 
 	uint64_t GetTotalCycles() const { return m_totalCycles; }
 	void ResetCycles() { m_totalCycles = 0; }
+	bool IsHalted() const { return m_halted; }
 
 	void Interrupt();
 
@@ -402,6 +403,10 @@ public:
 	uint16_t GetBC() const { return BC.pair; }
 	uint16_t GetPC() const { return PC; }
 	uint8_t GetI() const { return I; }
+	uint16_t GetIX() const { return IX; }
+	uint16_t GetIY() const { return IY; }
+	uint16_t GetSP() const { return SP; }
+	uint8_t GetR() const { return R; }
 
 	// Debug setters
 	void SetHL(uint16_t value) { HL.pair = value; }

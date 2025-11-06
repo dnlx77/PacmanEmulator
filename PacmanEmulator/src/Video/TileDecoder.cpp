@@ -33,7 +33,7 @@ uint32_t TileDecoder::ConvertPaletteByteToRGBA(uint8_t palette_byte)
 	uint8_t green_8bit = green_3bit * 255 / 7;
 	uint8_t blue_8bit = blue_2bit * 255 / 3;
 
-	uint32_t rgba = (red_8bit << 24) | (green_8bit << 16) | (blue_8bit << 8) | 0xFF;
+	uint32_t rgba = (red_8bit) | (green_8bit << 8) | (blue_8bit << 16) | (0xFF << 24);
 	return rgba;
 }
 

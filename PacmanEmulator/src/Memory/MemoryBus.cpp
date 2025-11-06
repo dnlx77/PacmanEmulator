@@ -23,12 +23,12 @@ uint8_t MemoryBus::Read(uint16_t address)
 	if (address <= 0x47FF) return m_CRam[address - 0x4400];
 
 	// RAM: 0x4800 - 0x4FFF (con mirroring)
-	if (address <= 0x4FFF) return m_ram[(address - 0x4800) % 0x0400];
+	if (address <= 0x4FFF) return m_ram[(address - 0x4800)];
 
 	// Sprite RAM: 0x5000 - 0x50FF
 	if (address <= 0x50FF) return m_SRam[address - 0x5000];
 
-	// Unmapped - STAMPA!
+	//Unmapped - STAMPA!
 	std::cerr << "WARNING: Read from unmapped address 0x"
 		<< std::hex << std::setfill('0') << std::setw(4)
 		<< address << std::dec << "\n";
@@ -52,19 +52,25 @@ void MemoryBus::Write(uint16_t address, uint8_t value)
 
 	// Color RAM: 0x4400 - 0x47FF
 	if (address <= 0x47FF) { m_CRam[address - 0x4400] = value; return; }
-	
 
 	// RAM: 0x4800 - 0x4FFF (con mirroring)
-	if (address <= 0x4FFF) { m_ram[(address - 0x4800) % 0x0400] = value; return; }
+	if (address <= 0x4FFF) { m_ram[(address - 0x4800)] = value; return; }
 
 	// Sprite RAM: 0x5000 - 0x50FF
 	if (address <= 0x50FF) { m_SRam[address - 0x5000] = value; return; }
 
 	// Unmapped - STAMPA!
-	std::cerr << "WARNING: Write to unmapped address 0x"
+	/*std::cerr << "WARNING: Write to unmapped address 0x"
 		<< std::hex << std::setfill('0') << std::setw(4)
 		<< address << " = 0x" << std::setw(2) << (int)value
-		<< std::dec << "\n";
+		<< std::dec << "\n";*/
+
+	// CP/M BDOS output
+	if (address == 0x02) {
+		printf("%c", value);  // Stampa il carattere
+		fflush(stdout);
+		return;
+	}
 }
 
 void MemoryBus::Initialize() {

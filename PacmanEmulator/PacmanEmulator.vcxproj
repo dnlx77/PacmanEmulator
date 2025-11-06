@@ -152,6 +152,7 @@ sfml-system.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClCompile Include="src\Core\PacmanEmulator.cpp" />
     <ClCompile Include="src\CPU\Z80.cpp" />
     <ClCompile Include="src\Memory\MemoryBus.cpp" />
+    <ClCompile Include="src\Video\SFMLBackend.cpp" />
     <ClCompile Include="src\Video\TileDecoder.cpp" />
     <ClCompile Include="src\Video\VideoController.cpp" />
   </ItemGroup>
@@ -160,6 +161,8 @@ sfml-system.lib;%(AdditionalDependencies)</AdditionalDependencies>
     <ClInclude Include="include\Core\PacmanEmulator.h" />
     <ClInclude Include="include\CPU\Z80.h" />
     <ClInclude Include="include\Memory\MemoryBus.h" />
+    <ClInclude Include="include\Video\RenderBackend.h" />
+    <ClInclude Include="include\Video\SFMLBackend.h" />
     <ClInclude Include="include\Video\TileDecoder.h" />
     <ClInclude Include="include\Video\VideoController.h" />
   </ItemGroup>

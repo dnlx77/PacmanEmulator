@@ -3,8 +3,10 @@
 #include <iostream>
 
 PacmanEmulator::PacmanEmulator()
-    : m_isRunning(false)
-    , m_isPaused(false)
+    : m_memory(nullptr), m_cpu(nullptr),
+    m_videoController(nullptr), m_window(nullptr),
+    m_renderBackend(nullptr),
+    m_isRunning(false), m_isPaused(false)
 {
     std::cout << "PacmanEmulator: Costruttore chiamato" << std::endl;
 }
@@ -30,14 +32,22 @@ bool PacmanEmulator::Initialize()
     m_memory = std::make_unique<MemoryBus>();
     m_memory->Initialize();
 
-    // TODO: Inizializza CPU Z80
+    // Inizializza CPU Z80
     m_cpu = std::make_unique<Z80>(m_memory.get());
     m_cpu->Reset();
+    
+    // Inizializza il video controller
+    m_videoController = std::make_unique<VideoController>(*m_memory);
 
-    // TODO: Inizializza VideoController
-    // m_video = std::make_unique<VideoController>(m_memory.get());
+    // Inizializza il render backend
+    m_renderBackend = std::make_unique<SFMLBackend>();
+    if (!m_renderBackend->Initialize(SCREEN_WIDTH, SCREEN_HEIGHT, 3, "Pac-Man Emulator")) {
+        std::cerr << "Errore: Impossibile inizializzare il renderer" << std::endl;
+        return false;
+    }
 
     std::cout << "PacmanEmulator: Inizializzazione completata" << std::endl;
+    m_isRunning = true;
     return true;
 }
 
@@ -90,28 +100,61 @@ void PacmanEmulator::Run()
 {
     std::cout << "PacmanEmulator: Avvio game loop..." << std::endl;
 
-    m_isRunning = true;
-    sf::Clock clock;
+    int loop_count = 0;
+    uint16_t last_pc = 0;
 
-    while (m_isRunning && m_window->isOpen())
-    {
-        float deltaTime = clock.restart().asSeconds();
+    while (m_isRunning) {
+        // Tracciamento cicli per il frame
+        int total_cycles_frame = 0;
 
-        ProcessInput();
+        // Per ogni scanline
+        for (int scanline = 0; scanline < TOTAL_SCANLINES; scanline++) {
+            int cycles_this_scanline = 0;
 
-        if (!m_isPaused)
-        {
-            int cycleThisFrame = 0;
-            while (cycleThisFrame < CPU_CYCLES_PER_FRAME)
-            {
-                int cycles = m_cpu->Step();
-                cycleThisFrame += cycles;
+            // CPU esegue fino a CYCLES_PER_SCANLINE cicli
+            while (cycles_this_scanline < CYCLES_PER_SCANLINE) {
+                if (m_cpu->IsHalted()) break;
+                cycles_this_scanline += m_cpu->Step();
             }
 
-            Update(deltaTime);
+            // Aggiungi i cicli al totale del frame
+            total_cycles_frame += cycles_this_scanline;
+
+            // Renderizza questa scanline
+            m_videoController->RenderScanline(scanline);
+
+            // Se abbiamo raggiunto i cicli del frame, esci
+            if (total_cycles_frame >= CYCLES_PER_FRAME) break;
         }
 
-        Render();
+        loop_count++;
+        if (loop_count % 1000 == 0) {  // Ogni 1000 frame
+            std::cout << "Loop " << loop_count << " - PC: 0x"
+                << std::hex << m_cpu->GetPC() << std::dec << std::endl;
+        }
+
+        if (loop_count % 1000 == 0) {
+            std::cout << "\n=== VRAM Dump ===\n";
+            for (int i = 0; i < 36; i++) {
+                for (int j = 0; j < 28; j++) {
+                    uint8_t tile = m_memory->Read(0x4000 + i * 28 + j);
+                    std::cout << std::hex << std::setw(2) << std::setfill('0')
+                        << (int)tile << " ";
+                }
+                std::cout << "\n";
+            }
+        }
+
+        // Interrupt verticale
+        m_cpu->Interrupt();
+
+        // Display framebuffer
+        m_renderBackend->DisplayFrameBuffer(
+            m_videoController->GetFrameBuffer(),
+            SCREEN_WIDTH,
+            SCREEN_HEIGHT
+        );
+        m_renderBackend->Present();
     }
 
     std::cout << "PacmanEmulator: Game loop terminato" << std::endl;

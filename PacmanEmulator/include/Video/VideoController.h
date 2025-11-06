@@ -12,6 +12,7 @@ static constexpr int SCREEN_SIZE = SCREEN_WIDTH * SCREEN_HEIGHT;
 class VideoController {
 public:
 	VideoController(MemoryBus &memory);
+	void RenderScanline(int scanline_y);
 	void RenderFrame();
 	bool SaveFramebufferPPM(const std::string &filename) const;
 	const uint32_t* GetFrameBuffer() const;

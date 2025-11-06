@@ -4,6 +4,8 @@
 #include <CPU/Z80.h>
 #include <memory>
 #include <string>
+#include "Video/VideoController.h"
+#include "Video/SFMLBackend.h"
 
 class MemoryBus;
 // // Forward declarations (le useremo dopo)
@@ -39,14 +41,19 @@ private:
     std::unique_ptr<MemoryBus> m_memory;
     // Componenti dell'emulatore (commentiamo per ora, li aggiungeremo dopo)
     std::unique_ptr<Z80> m_cpu;
-    // std::unique_ptr<VideoController> m_video;
+    std::unique_ptr<VideoController> m_videoController;
 
     // SFML
     std::unique_ptr<sf::RenderWindow> m_window;
 
+    // Render backend
+    std::unique_ptr<RenderBackend> m_renderBackend;
+
     // Timing
-    static constexpr float FRAME_TIME = 1.0f / 60.0f; // 60 FPS
-    static constexpr int CPU_CYCLES_PER_FRAME = 51200; // Z80 @ 3.072 MHz
+    static constexpr int Z80_FREQUENCY = 3072000;  // 3.072 MHz
+    static constexpr int CYCLES_PER_FRAME = Z80_FREQUENCY / 60;  // ~51.200
+    static constexpr int CYCLES_PER_SCANLINE = 224;
+    static constexpr int TOTAL_SCANLINES = 288;
 
     // Stato
     bool m_isRunning;

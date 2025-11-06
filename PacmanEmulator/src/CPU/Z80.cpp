@@ -301,7 +301,7 @@ void Z80::OP_NotImplemented() {
     std::cerr << "  HL=0x" << std::hex << HL.pair << std::dec << "\n";
     std::cerr << "  SP=0x" << std::hex << SP << std::dec << "\n";
 
-    throw std::runtime_error("Unimplemented opcode encountered!");
+    //throw std::runtime_error("Unimplemented opcode encountered!");
 }
 
 void Z80::OP_NOP() {
@@ -1202,7 +1202,7 @@ void Z80::OP_OUT_n_A()
 
 void Z80::OP_EI()
 {
-    std::cout << ">>> EI opcode executed! interruptEnabled = true\n";
+    //std::cout << ">>> EI opcode executed! interruptEnabled = true\n";
     m_interruptsEnabled = true;
     m_cyclesLastInstruction = 4;
 }
@@ -2309,14 +2309,12 @@ void Z80::Interrupt() {
         uint8_t high = m_memory->Read(vector_addr + 1);
         uint16_t handler_addr = (high << 8) | low;
 
-        /*printf(">>> Mode 2 INT: I=0x%02X, vec=0x%02X, addr=0x%04X -> handler=0x%04X\n",
-            I, m_interruptVector, vector_addr, handler_addr);*/
-
         PC = handler_addr;
         m_totalCycles += 19;
     }
     else {
         // Mode 1: va a 0x0038
+        std::cout << ">>> INTERRUPT: Saltando a 0x0038" << std::endl;
         PC = 0x0038;
         m_totalCycles += 13;
     }

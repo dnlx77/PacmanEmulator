@@ -10,7 +10,7 @@ private:
 	std::array<uint8_t, 0X4000> m_rom;		// Rom
 	std::array<uint8_t, 0X400> m_VRam;		// Video Ram
 	std::array<uint8_t, 0X400> m_CRam;		// Color Ram
-	std::array<uint8_t, 0X400> m_ram;		// Ram
+	std::array<uint8_t, 0X0800> m_ram;		// Ram
 	std::array<uint8_t, 0X100> m_SRam;		// Sprite ram
 	std::array<uint8_t, 0x2000> m_graphicsTiles;
 	std::array<uint8_t, 0x100> m_graphicsPalette;

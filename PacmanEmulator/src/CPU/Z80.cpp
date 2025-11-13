@@ -1167,7 +1167,8 @@ void Z80::OP_JP_HL()
 
 void Z80::OP_DI()
 {
-    // Disabilita interrupt - per ora ignora
+    // Disabilita interrupt
+    m_interruptsEnabled = false;
     m_cyclesLastInstruction = 4;
 }
 

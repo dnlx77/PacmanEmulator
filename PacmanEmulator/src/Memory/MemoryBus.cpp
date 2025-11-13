@@ -22,8 +22,8 @@ uint8_t MemoryBus::Read(uint16_t address)
 	// Color RAM: 0x4400 - 0x47FF
 	if (address <= 0x47FF) return m_CRam[address - 0x4400];
 
-	// RAM: 0x4800 - 0x4FFF (con mirroring)
-	if (address <= 0x4FFF) return m_ram[(address - 0x4800)];
+	// RAM: 0x4800 - 0x4FFF (con mirroring: 0x4C00-0x4FFF è mirror di 0x4800-0x4BFF)
+	if (address <= 0x4FFF) return m_ram[(address - 0x4800) & 0x3FF];
 
 	// Sprite RAM: 0x5000 - 0x50FF
 	if (address <= 0x50FF) return m_SRam[address - 0x5000];
@@ -53,8 +53,8 @@ void MemoryBus::Write(uint16_t address, uint8_t value)
 	// Color RAM: 0x4400 - 0x47FF
 	if (address <= 0x47FF) { m_CRam[address - 0x4400] = value; return; }
 
-	// RAM: 0x4800 - 0x4FFF (con mirroring)
-	if (address <= 0x4FFF) { m_ram[(address - 0x4800)] = value; return; }
+	// RAM: 0x4800 - 0x4FFF (con mirroring: 0x4C00-0x4FFF è mirror di 0x4800-0x4BFF)
+	if (address <= 0x4FFF) { m_ram[(address - 0x4800) & 0x3FF] = value; return; }
 
 	// Sprite RAM: 0x5000 - 0x50FF
 	if (address <= 0x50FF) { m_SRam[address - 0x5000] = value; return; }

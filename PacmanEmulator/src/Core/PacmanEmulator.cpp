@@ -1,6 +1,7 @@
 #include "Core/PacmanEmulator.h"
 #include "Memory/MemoryBus.h"
 #include <iostream>
+#include <iomanip>
 
 PacmanEmulator::PacmanEmulator()
     : m_memory(nullptr), m_cpu(nullptr),
@@ -21,7 +22,7 @@ bool PacmanEmulator::Initialize()
     std::cout << "PacmanEmulator: Inizializzazione..." << std::endl;
 
     // Crea finestra SFML
-    // Pac-Man originale: 224x288 pixel, scala x3 per visibilità
+    // Pac-Man originale: 224x288 pixel, scala x3 per visibilitï¿½
     m_window = std::make_unique<sf::RenderWindow>(
         sf::VideoMode({ 224 * 3, 288 * 3 }),
         "Pac-Man Emulator"
@@ -104,6 +105,9 @@ void PacmanEmulator::Run()
     uint16_t last_pc = 0;
 
     while (m_isRunning) {
+        // Controlla eventi della finestra (chiusura, input, etc.)
+        ProcessInput();
+
         // Tracciamento cicli per il frame
         int total_cycles_frame = 0;
 

@@ -100,55 +100,49 @@ void PacmanEmulator::Run()
 {
     std::cout << "PacmanEmulator: Avvio game loop..." << std::endl;
 
-    int loop_count = 0;
-    uint16_t last_pc = 0;
-
     while (m_isRunning) {
-        // Tracciamento cicli per il frame
-        int total_cycles_frame = 0;
+        // Gestione Input (fondamentale per chiudere o mettere in pausa)
+        ProcessInput();
 
-        // Per ogni scanline
+        if (m_isPaused) {
+            sf::sleep(sf::milliseconds(10)); // Risparmia CPU se in pausa
+            continue;
+        }
+
+        // --- CICLO DI SCANLINE (Rendering e CPU) ---
+        // Deve arrivare fino a TOTAL_SCANLINES (288) per disegnare tutto lo schermo,
+        // incluse le vite e i crediti in basso.
         for (int scanline = 0; scanline < TOTAL_SCANLINES; scanline++) {
+
             int cycles_this_scanline = 0;
 
-            // CPU esegue fino a CYCLES_PER_SCANLINE cicli
+            // Esegui la CPU per i cicli necessari a disegnare una linea (~224 cicli)
             while (cycles_this_scanline < CYCLES_PER_SCANLINE) {
-                if (m_cpu->IsHalted()) break;
+                // La tua funzione Step() gestisce già internamente lo stato HALT
+                // ritornando 4 cicli senza fare nulla, quindi possiamo chiamarla direttamente.
                 cycles_this_scanline += m_cpu->Step();
             }
 
-            // Aggiungi i cicli al totale del frame
-            total_cycles_frame += cycles_this_scanline;
-
-            // Renderizza questa scanline
+            // Renderizza lo sfondo (Tilemap) per questa riga
             m_videoController->RenderScanline(scanline);
 
-            // Se abbiamo raggiunto i cicli del frame, esci
-            if (total_cycles_frame >= CYCLES_PER_FRAME) break;
+            // NOTA: Abbiamo RIMOSSO il check "if (total_cycles >= FRAME)" con il break.
+            // Questo garantisce che il loop arrivi fino alla riga 288.
         }
 
-        loop_count++;
-        if (loop_count % 1000 == 0) {  // Ogni 1000 frame
-            std::cout << "Loop " << loop_count << " - PC: 0x"
-                << std::hex << m_cpu->GetPC() << std::dec << std::endl;
+        // --- RENDERING SPRITE ---
+        // Una volta disegnato tutto lo sfondo, disegniamo sopra gli sprite (Pac-Man, fantasmi).
+        // (Assicurati di aver aggiunto questo metodo in VideoController come discusso prima)
+        //m_videoController->RenderSprites();
+
+        // --- INTERRUPT VBLANK ---
+        // Scatta una volta per frame (60Hz).
+        // Controlliamo se l'hardware video lo permette (registro 0x5000)
+        if (m_memory->IsIrqEnabled()) {
+            m_cpu->Interrupt();
         }
 
-        if (loop_count % 1000 == 0) {
-            std::cout << "\n=== VRAM Dump ===\n";
-            for (int i = 0; i < 36; i++) {
-                for (int j = 0; j < 28; j++) {
-                    uint8_t tile = m_memory->Read(0x4000 + i * 28 + j);
-                    std::cout << std::hex << std::setw(2) << std::setfill('0')
-                        << (int)tile << " ";
-                }
-                std::cout << "\n";
-            }
-        }
-
-        // Interrupt verticale
-        m_cpu->Interrupt();
-
-        // Display framebuffer
+        // --- AGGIORNAMENTO SCHERMO ---
         m_renderBackend->DisplayFrameBuffer(
             m_videoController->GetFrameBuffer(),
             SCREEN_WIDTH,

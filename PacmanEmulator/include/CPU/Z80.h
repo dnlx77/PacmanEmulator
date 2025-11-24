@@ -287,8 +287,14 @@ private:
 	void OP_DJNZ();
 
 	void OP_OUT_n_A();
+	void OP_IN_A_n();
+	void OP_RLA();
+	void OP_RRA();
+	void OP_SCF();
 	void OP_EI();
 	void OP_JP_M_nn();
+
+	void OP_CCF();
 
 	void OP_RETI();
 

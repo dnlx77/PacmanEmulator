@@ -11,64 +11,108 @@ MemoryBus::~MemoryBus()
 {
 }
 
+// MemoryBus.cpp - Read corretto:
 uint8_t MemoryBus::Read(uint16_t address)
 {
-	// ROM: read-only
+	// ROM: 0x0000-0x3FFF
 	if (address <= 0x3FFF) return m_rom[address];
 
-	// Video RAM: 0x4000 - 0x43FF
+	// Video RAM: 0x4000-0x43FF
 	if (address <= 0x43FF) return m_VRam[address - 0x4000];
 
-	// Color RAM: 0x4400 - 0x47FF
+	// Color RAM: 0x4400-0x47FF
 	if (address <= 0x47FF) return m_CRam[address - 0x4400];
 
-	// RAM: 0x4800 - 0x4FFF (con mirroring)
-	if (address <= 0x4FFF) return m_ram[(address - 0x4800)];
+	// RAM: 0x4800-0x4FFF
+	if (address <= 0x4FFF) return m_ram[address - 0x4800];
 
-	// Sprite RAM: 0x5000 - 0x50FF
-	if (address <= 0x50FF) return m_SRam[address - 0x5000];
+	// I/O AREA: 0x5000-0x50FF - CRITICO!
+	if (address >= 0x5000 && address <= 0x50FF) {
+		uint8_t offset = address & 0xFF;
 
-	//Unmapped - STAMPA!
-	std::cerr << "WARNING: Read from unmapped address 0x"
-		<< std::hex << std::setfill('0') << std::setw(4)
-		<< address << std::dec << "\n";
+		// Input ports (read only)
+		if (offset < 0x40) {
+			switch (offset) {
+			case 0x00: // IN0: P1 controls
+				return m_in0;
+
+			case 0x40: // IN1: P2 controls  
+				return m_in1;
+
+			case 0x80: // DSW1: DIP switches
+				return m_dipSwitches;
+
+			default:
+				return 0xFF;
+			}
+		}
+
+		// Sprite coordinates: 0x5060-0x506F
+		if (offset >= 0x60 && offset < 0x70) {
+			return m_spriteCoords[offset - 0x60];
+		}
+
+		// Altri registri
+		return 0xFF;
+	}
+
+	// Unmapped
 	return 0xFF;
-	
 }
 
+// MemoryBus.cpp - Write corretto:
 void MemoryBus::Write(uint16_t address, uint8_t value)
 {
 	// ROM: read-only
-	if (address <= 0x3FFF) {
-		std::cerr << "WARNING: Write to ROM at 0x"
-			<< std::hex << std::setfill('0') << std::setw(4)
-			<< address << " = 0x" << std::setw(2) << (int)value
-			<< std::dec << "\n";
+	if (address <= 0x3FFF) return;
+
+	// Video RAM: 0x4000-0x43FF
+	if (address <= 0x43FF) {
+		m_VRam[address - 0x4000] = value;
 		return;
 	}
 
-	// Video RAM: 0x4000 - 0x43FF
-	if (address <= 0x43FF) { m_VRam[address - 0x4000] = value; return; }
+	// Color RAM: 0x4400-0x47FF
+	if (address <= 0x47FF) {
+		m_CRam[address - 0x4400] = value;
+		return;
+	}
 
-	// Color RAM: 0x4400 - 0x47FF
-	if (address <= 0x47FF) { m_CRam[address - 0x4400] = value; return; }
+	// RAM: 0x4800-0x4FFF
+	if (address <= 0x4FFF) {
+		m_ram[address - 0x4800] = value;
+		return;
+	}
 
-	// RAM: 0x4800 - 0x4FFF (con mirroring)
-	if (address <= 0x4FFF) { m_ram[(address - 0x4800)] = value; return; }
+	// I/O AREA: 0x5000-0x50FF
+	if (address >= 0x5000 && address <= 0x50FF) {
+		uint8_t offset = address & 0xFF;
 
-	// Sprite RAM: 0x5000 - 0x50FF
-	if (address <= 0x50FF) { m_SRam[address - 0x5000] = value; return; }
+		// Interrupt Enable: 0x5000 (Write)
+		if (offset == 0x00) {
+			// Bit 0 controlla l'abilitazione degli interrupt hardware
+			m_irqEnabled = (value & 0x01) != 0;
+			return;
+		}
 
-	// Unmapped - STAMPA!
-	/*std::cerr << "WARNING: Write to unmapped address 0x"
-		<< std::hex << std::setfill('0') << std::setw(4)
-		<< address << " = 0x" << std::setw(2) << (int)value
-		<< std::dec << "\n";*/
+		// Sound registers: 0x5040-0x505F
+		if (offset >= 0x40 && offset < 0x60) {
+			// Per ora ignora i suoni
+			return;
+		}
 
-	// CP/M BDOS output
-	if (address == 0x02) {
-		printf("%c", value);  // Stampa il carattere
-		fflush(stdout);
+		// Sprite coordinates: 0x5060-0x506F  
+		if (offset >= 0x60 && offset < 0x70) {
+			m_spriteCoords[offset - 0x60] = value;
+			return;
+		}
+
+		// Watchdog: 0x50C0
+		if (offset == 0xC0) {
+			// Reset watchdog timer (ignora per ora)
+			return;
+		}
+
 		return;
 	}
 }
@@ -81,6 +125,19 @@ void MemoryBus::Initialize() {
 	m_SRam.fill(0);
 	m_graphicsTiles.fill(0);
 	m_graphicsPalette.fill(0);
+
+	// Setup input per attract mode
+	m_in0 = 0x3F;  // Bit pattern: 0011 1111
+	// Bit 7: unused
+	// Bit 6: coin (1=not pressed)
+	// Bit 5-0: altri controlli
+
+	m_in1 = 0xFF;  // Tutti i tasti non premuti
+
+	m_dipSwitches = 0xC9;  // Config standard:
+	// 1 coin = 1 credit
+	// 3 lives
+	// Normal difficulty
 }
 
 size_t MemoryBus::LoadRom(const std::string &filename, ROMType type, size_t offset)

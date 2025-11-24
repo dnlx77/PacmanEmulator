@@ -23,4 +23,5 @@ private:
 	TileDecoder m_tileDecoder;
 	std::array<uint32_t, SCREEN_SIZE> m_frameBuffer;
 	void RenderTile(int tile_x, int tile_y);
+	uint16_t GetVramOffset(int x, int y);
 };

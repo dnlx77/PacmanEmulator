@@ -16,6 +16,17 @@ private:
 	std::array<uint8_t, 0x100> m_graphicsPalette;
 	std::array<uint8_t, 0x100> m_paletteLookup;
 
+	// I/O Ports
+	uint8_t m_in0 = 0xFF;        // Joystick P1, coin, etc.
+	uint8_t m_in1 = 0xFF;        // Joystick P2, start buttons
+	uint8_t m_dipSwitches = 0xC9; // DIP switches config
+
+	bool m_irqEnabled = false;
+
+	// Sprite data (la VERA sprite RAM)
+	std::array<uint8_t, 16> m_spriteCoords;   // 0x5060-0x506F
+	std::array<uint8_t, 16> m_spriteAttribs;  // 0x5060-0x506F (different view)
+
 public:
 	enum class ROMType {
 		CPU,
@@ -36,4 +47,6 @@ public:
 	const uint8_t *GetGraphicsTiles() const;
 	const uint8_t *GetGraphicsPalette() const;
 	const uint8_t *GetGraphicsPaletteLookup() const;
+
+	bool IsIrqEnabled() const { return m_irqEnabled; }
 };

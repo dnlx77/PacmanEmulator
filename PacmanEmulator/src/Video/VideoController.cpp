@@ -44,6 +44,39 @@ void VideoController::RenderScanline(int scanline_y)
 	}
 }
 
+void VideoController::RenderSprites()
+{
+	for (int i = 7; i >= 0; i--) {
+		uint16_t coord_addr = 0x5060 + (i * 2);
+		uint16_t attr_addr = 0x4FF0 + (i * 2);
+
+		// USA PEEK INVECE DI READ!
+		// Questo recupera le coordinate vere senza confondere la CPU
+		uint8_t x_raw = m_memory.PeekVideoRegister(coord_addr);
+		uint8_t y_raw = m_memory.PeekVideoRegister(coord_addr + 1);
+
+		uint8_t tile_info = m_memory.Read(attr_addr);     // Byte 0: Index + Flips
+		uint8_t palette_info = m_memory.Read(attr_addr + 1); // Byte 1: Palette
+
+		// Indice sprite hardware 0-63 (4 tile da 16 byte = 64 byte per sprite).
+		uint16_t sprite_index = (tile_info & 0xFC) >> 2;
+
+		bool flipX = (tile_info & 0x02) != 0;
+		bool flipY = (tile_info & 0x01) != 0;
+
+		uint8_t palette_offset = palette_info & 0x3F;
+
+		int x_screen = 239 - x_raw;
+		int y_screen = 272 - y_raw;
+		if (x_screen > 224) x_screen -= 256;
+		if (y_screen > 288) y_screen -= 256;
+
+		DrawSprite(x_screen, y_screen, sprite_index, palette_offset, flipX, flipY);
+	}
+}
+
+// VideoController.cpp
+
 void VideoController::RenderFrame()
 {
 	for (int y = 0; y < 36; y++) {
@@ -83,6 +116,32 @@ void VideoController::RenderTile(int tile_x, int tile_y)
 		}
 	}
 }
+
+void VideoController::DrawSprite(int start_x, int start_y, uint16_t sprite_index, uint8_t palette_offset, bool flipX, bool flipY)
+{
+	auto pixels = m_tileDecoder.DecodeSprite(sprite_index, palette_offset);
+
+	for (int py = 0; py < 16; py++) {
+		int srcY = flipY ? (15 - py) : py;
+
+		for (int px = 0; px < 16; px++) {
+			int srcX = flipX ? (15 - px) : px;
+			uint32_t color = pixels[srcY * 16 + srcX];
+
+			if ((color & 0x00FFFFFF) == 0) continue;
+
+			int screen_x = start_x + px;
+			int screen_y = start_y + py;
+
+			if (screen_x >= 0 && screen_x < SCREEN_WIDTH &&
+				screen_y >= 0 && screen_y < SCREEN_HEIGHT) {
+				m_frameBuffer[screen_y * SCREEN_WIDTH + screen_x] = color;
+			}
+		}
+	}
+}
+
+// VideoController.cpp
 
 uint16_t VideoController::GetVramOffset(int x, int y)
 {
@@ -129,9 +188,9 @@ bool VideoController::SaveFramebufferPPM(const std::string &filename) const
 
 	for (int i = 0; i < SCREEN_SIZE; i++) {
 		uint32_t rgba = m_frameBuffer[i];
-		uint8_t r = (rgba >> 24) & 0xFF;
-		uint8_t g = (rgba >> 16) & 0xFF;
-		uint8_t b = (rgba >> 8) & 0xFF;
+		uint8_t r = rgba & 0xFF;
+		uint8_t g = (rgba >> 8) & 0xFF;
+		uint8_t b = (rgba >> 16) & 0xFF;
 
 		file.put(r);
 		file.put(g);

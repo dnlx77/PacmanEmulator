@@ -34,10 +34,14 @@ public:
 	/// Presenta il frame a schermo (swapchain)
 	virtual void Present() = 0;
 
-	/// Verifica se un tasto è attualmente premuto
+	/// Verifica se un tasto ï¿½ attualmente premuto
 	/// @param key Il tasto da controllare
-	/// @return true se il tasto è premuto, false altrimenti
+	/// @return true se il tasto ï¿½ premuto, false altrimenti
 	virtual bool IsKeyPressed(KeyCode key) = 0;
+
+	/// Processa gli eventi della finestra (chiusura, ecc.)
+	/// @return true se l'utente ha richiesto la chiusura della finestra
+	virtual bool PollEvents() = 0;
 
 	/// Chiude il backend e libera le risorse
 	virtual void Shutdown() = 0;

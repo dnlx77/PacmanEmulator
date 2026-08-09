@@ -14,6 +14,8 @@ MemoryBus::~MemoryBus()
 // MemoryBus.cpp - Read corretto:
 uint8_t MemoryBus::Read(uint16_t address)
 {
+	if (m_flatMode) return m_flatRam[address];
+
 	// ROM: 0x0000-0x3FFF
 	if (address <= 0x3FFF) return m_rom[address];
 
@@ -26,43 +28,40 @@ uint8_t MemoryBus::Read(uint16_t address)
 	// RAM: 0x4800-0x4FFF
 	if (address <= 0x4FFF) return m_ram[address - 0x4800];
 
-	// I/O AREA: 0x5000-0x50FF - CRITICO!
+	// I/O AREA: 0x5000-0x50FF
 	if (address >= 0x5000 && address <= 0x50FF) {
 		uint8_t offset = address & 0xFF;
 
-		// Input ports (read only)
+		// --- FIX CRITICO: RIMOSSO BLOCCO SPRITE COORDS ---
+		// Le coordinate (5060-506F) sono WRITE-ONLY.
+		// In lettura, quest'area è un mirror di IN1 (5040-507F).
+
+		// Gestione Input con Mirroring corretto
 		if (offset < 0x40) {
-			switch (offset) {
-			case 0x00: // IN0: P1 controls
-				return m_in0;
-
-			case 0x40: // IN1: P2 controls  
-				return m_in1;
-
-			case 0x80: // DSW1: DIP switches
-				return m_dipSwitches;
-
-			default:
-				return 0xFF;
-			}
+			// 0x5000 - 0x503F: IN0 (Joystick P1, Coins)
+			return m_in0;
+		}
+		if (offset < 0x80) {
+			// 0x5040 - 0x507F: IN1 (Start, Service, Cockt P2)
+			// Nota: Questo copre anche l'area 5060-506F!
+			return m_in1;
+		}
+		if (offset < 0xC0) {
+			// 0x5080 - 0x50BF: Dip Switches
+			return m_dipSwitches;
 		}
 
-		// Sprite coordinates: 0x5060-0x506F
-		if (offset >= 0x60 && offset < 0x70) {
-			return m_spriteCoords[offset - 0x60];
-		}
-
-		// Altri registri
+		// 0x50C0 - 0x50FF: Watchdog / Sound (solitamente open bus/FF)
 		return 0xFF;
 	}
 
-	// Unmapped
 	return 0xFF;
 }
-
 // MemoryBus.cpp - Write corretto:
 void MemoryBus::Write(uint16_t address, uint8_t value)
 {
+	if (m_flatMode) { m_flatRam[address] = value; return; }
+
 	// ROM: read-only
 	if (address <= 0x3FFF) return;
 
@@ -126,8 +125,10 @@ void MemoryBus::Initialize() {
 	m_graphicsTiles.fill(0);
 	m_graphicsPalette.fill(0);
 
+	m_irqEnabled = false;
+
 	// Setup input per attract mode
-	m_in0 = 0x3F;  // Bit pattern: 0011 1111
+	m_in0 = 0xFF;  // Bit pattern: 0011 1111
 	// Bit 7: unused
 	// Bit 6: coin (1=not pressed)
 	// Bit 5-0: altri controlli
@@ -178,6 +179,33 @@ size_t MemoryBus::LoadRom(const std::string &filename, ROMType type, size_t offs
 	return bytesRead;
 }
 
+void MemoryBus::UpdateInputs(uint8_t in0, uint8_t in1)
+{
+	m_in0 = in0;
+	m_in1 = in1;
+}
+
+uint8_t MemoryBus::PeekVideoRegister(uint16_t address) const
+{
+	// Se l'indirizzo è nell'area Sprite Coordinates (0x5060-0x506F)
+	if (address >= 0x5060 && address <= 0x506F) {
+		return m_spriteCoords[address - 0x5060];
+	}
+
+	// Per tutto il resto (es. RAM attributi 4FF0), usiamo l'accesso diretto
+	if (address >= 0x4800 && address <= 0x4FFF) {
+		return m_ram[address - 0x4800];
+	}
+
+	// Per tutto il resto (es. VRAM), usiamo l'accesso diretto
+	if (address <= 0x3FFF) return m_rom[address];
+	if (address <= 0x43FF) return m_VRam[address - 0x4000];
+	if (address <= 0x47FF) return m_CRam[address - 0x4400];
+	if (address <= 0x4FFF) return m_ram[address - 0x4800];
+
+	return 0;
+}
+
 const uint8_t *MemoryBus::GetGraphicsTiles() const
 {
 	return m_graphicsTiles.data();
@@ -191,4 +219,31 @@ const uint8_t *MemoryBus::GetGraphicsPalette() const
 const uint8_t *MemoryBus::GetGraphicsPaletteLookup() const
 {
 	return m_paletteLookup.data();
+}
+
+void MemoryBus::EnableFlatMemoryMode()
+{
+	m_flatMode = true;
+	m_flatRam.fill(0);
+}
+
+bool MemoryBus::LoadFlatBinary(const std::string &filename, uint16_t loadAddress)
+{
+	std::ifstream file(filename, std::ios::binary);
+	if (!file.is_open()) {
+		std::cerr << "Errore: impossibile aprire " << filename << std::endl;
+		return false;
+	}
+
+	file.seekg(0, std::ios::end);
+	size_t fileSize = static_cast<size_t>(file.tellg());
+	file.seekg(0, std::ios::beg);
+
+	if (static_cast<size_t>(loadAddress) + fileSize > m_flatRam.size()) {
+		std::cerr << "Errore: " << filename << " non entra in memoria all'indirizzo richiesto" << std::endl;
+		return false;
+	}
+
+	file.read(reinterpret_cast<char *>(m_flatRam.data() + loadAddress), fileSize);
+	return true;
 }

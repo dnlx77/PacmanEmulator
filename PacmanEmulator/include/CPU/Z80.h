@@ -54,7 +54,7 @@ private:
 
 	void InitOpcodeTable();
 
-	// Helper per calcolo parità
+	// Helper per calcolo paritï¿½
 	bool CalculateParity(uint8_t value);
 
 	// Opcodes
@@ -160,6 +160,9 @@ private:
 	void OP_JP_NZ_nn();
 	void OP_JP_C_nn();
 	void OP_JP_NC_nn();
+	void OP_JP_PE_nn();
+	void OP_JP_PO_nn();
+	void OP_JP_P_nn();
 
 	// Jump relativi
 	void OP_JR_e();
@@ -174,11 +177,17 @@ private:
 	void OP_CALL_NZ_nn();
 	void OP_CALL_C_nn();
 	void OP_CALL_NC_nn();
+	void OP_CALL_PE_nn();
+	void OP_CALL_PO_nn();
+	void OP_CALL_M_nn();
+	void OP_CALL_P_nn();
 	void OP_RET();
 	void OP_RET_Z();
 	void OP_RET_NZ();
 	void OP_RET_C();
 	void OP_RET_NC();
+	void OP_RET_PE();
+	void OP_RET_PO();
 
 	// Push/Pop
 	void OP_PUSH_BC();
@@ -294,6 +303,10 @@ private:
 	void OP_EI();
 	void OP_JP_M_nn();
 
+	void OP_RET_M();
+	void OP_RET_P();
+	void OP_DAA();
+
 	void OP_CCF();
 
 	void OP_RETI();
@@ -301,6 +314,7 @@ private:
 	void OP_RRCA();
 
 	void OP_EXX();
+	void OP_EX_AF_AF();
 
 	void OP_CPL();
 

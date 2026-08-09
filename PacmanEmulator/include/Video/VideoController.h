@@ -13,6 +13,7 @@ class VideoController {
 public:
 	VideoController(MemoryBus &memory);
 	void RenderScanline(int scanline_y);
+	void RenderSprites();
 	void RenderFrame();
 	bool SaveFramebufferPPM(const std::string &filename) const;
 	const uint32_t* GetFrameBuffer() const;
@@ -23,5 +24,6 @@ private:
 	TileDecoder m_tileDecoder;
 	std::array<uint32_t, SCREEN_SIZE> m_frameBuffer;
 	void RenderTile(int tile_x, int tile_y);
+	void DrawSprite(int start_x, int start_y, uint16_t sprite_index, uint8_t palette_info, bool flipX, bool flipY);
 	uint16_t GetVramOffset(int x, int y);
 };

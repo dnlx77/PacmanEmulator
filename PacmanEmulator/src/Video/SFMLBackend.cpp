@@ -30,6 +30,13 @@ bool SFMLBackend::Initialize(unsigned int width, unsigned int height, unsigned i
         return false;
     }
 
+    // Limita l'emulazione a 60Hz (il refresh reale dell'hardware Pac-Man).
+    // Senza questo il game loop gira senza freno: la CPU e gli interrupt
+    // VBLANK vengono eseguiti molto più velocemente del previsto, e tutta
+    // la logica di gioco basata sul conteggio degli interrupt (timer,
+    // transizioni di livello, cutscene) sembra "impazzire".
+    m_window->setFramerateLimit(60);
+
     // 3. Crea la texture per il framebuffer
     m_frameTexture = std::make_unique<sf::Texture>(sf::Vector2u(width, height));
     if (!m_frameTexture) {
@@ -96,6 +103,18 @@ void SFMLBackend::Present()
 
     // 3. Mostra il risultato
     m_window->display();
+}
+
+bool SFMLBackend::PollEvents()
+{
+    bool shouldClose = false;
+    while (const std::optional<sf::Event> event = m_window->pollEvent())
+    {
+        if (event->is<sf::Event::Closed>()) {
+            shouldClose = true;
+        }
+    }
+    return shouldClose;
 }
 
 bool SFMLBackend::IsKeyPressed(KeyCode key)

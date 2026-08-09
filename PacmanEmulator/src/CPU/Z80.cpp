@@ -138,6 +138,9 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0xC2] = &Z80::OP_JP_NZ_nn;
     m_opcodeTable[0xDA] = &Z80::OP_JP_C_nn;
     m_opcodeTable[0xD2] = &Z80::OP_JP_NC_nn;
+    m_opcodeTable[0xEA] = &Z80::OP_JP_PE_nn;
+    m_opcodeTable[0xE2] = &Z80::OP_JP_PO_nn;
+    m_opcodeTable[0xF2] = &Z80::OP_JP_P_nn;
 
     // Jump relativi
     m_opcodeTable[0x18] = &Z80::OP_JR_e;
@@ -152,11 +155,17 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0xC4] = &Z80::OP_CALL_NZ_nn;
     m_opcodeTable[0xDC] = &Z80::OP_CALL_C_nn;
     m_opcodeTable[0xD4] = &Z80::OP_CALL_NC_nn;
+    m_opcodeTable[0xEC] = &Z80::OP_CALL_PE_nn;
+    m_opcodeTable[0xE4] = &Z80::OP_CALL_PO_nn;
+    m_opcodeTable[0xFC] = &Z80::OP_CALL_M_nn;
+    m_opcodeTable[0xF4] = &Z80::OP_CALL_P_nn;
     m_opcodeTable[0xC9] = &Z80::OP_RET;
     m_opcodeTable[0xC8] = &Z80::OP_RET_Z;
     m_opcodeTable[0xC0] = &Z80::OP_RET_NZ;
     m_opcodeTable[0xD8] = &Z80::OP_RET_C;
     m_opcodeTable[0xD0] = &Z80::OP_RET_NC;
+    m_opcodeTable[0xE8] = &Z80::OP_RET_PE;
+    m_opcodeTable[0xE0] = &Z80::OP_RET_PO;
 
     // Push/Pop
     m_opcodeTable[0xC5] = &Z80::OP_PUSH_BC;
@@ -278,6 +287,10 @@ void Z80::InitOpcodeTable() {
     m_opcodeTable[0x35] = &Z80::OP_DEC_pHL;
     m_opcodeTable[0x3F] = &Z80::OP_CCF;
     m_opcodeTable[0x37] = &Z80::OP_SCF;
+    m_opcodeTable[0xF0] = &Z80::OP_RET_P;
+    m_opcodeTable[0xF8] = &Z80::OP_RET_M;
+    m_opcodeTable[0x27] = &Z80::OP_DAA;
+    m_opcodeTable[0x08] = &Z80::OP_EX_AF_AF;
 }
 
 bool Z80::CalculateParity(uint8_t value)
@@ -417,6 +430,9 @@ void Z80::OP_JP_nn()
 }
 
 void Z80::OP_JP_Z_nn() { JP_nn_conditional(FLAG_Z, true); }
+void Z80::OP_JP_PE_nn() { JP_nn_conditional(FLAG_PV, true); }
+void Z80::OP_JP_PO_nn() { JP_nn_conditional(FLAG_PV, false); }
+void Z80::OP_JP_P_nn() { JP_nn_conditional(FLAG_S, false); }
 
 void Z80::OP_JP_NZ_nn() { JP_nn_conditional(FLAG_Z, false); }
 
@@ -520,6 +536,10 @@ void Z80::OP_CALL_NZ_nn() { CALL_conditional(FLAG_Z, false); }
 void Z80::OP_CALL_C_nn() { CALL_conditional(FLAG_C, true); }
 
 void Z80::OP_CALL_NC_nn() { CALL_conditional(FLAG_C, false); }
+void Z80::OP_CALL_PE_nn() { CALL_conditional(FLAG_PV, true); }
+void Z80::OP_CALL_PO_nn() { CALL_conditional(FLAG_PV, false); }
+void Z80::OP_CALL_M_nn() { CALL_conditional(FLAG_S, true); }
+void Z80::OP_CALL_P_nn() { CALL_conditional(FLAG_S, false); }
 
 void Z80::OP_RET()
 {
@@ -535,6 +555,8 @@ void Z80::OP_RET_NZ() { RET_conditional(FLAG_Z, false); }
 void Z80::OP_RET_C() { RET_conditional(FLAG_C, true); }
 
 void Z80::OP_RET_NC() { RET_conditional(FLAG_C, false); }
+void Z80::OP_RET_PE() { RET_conditional(FLAG_PV, true); }
+void Z80::OP_RET_PO() { RET_conditional(FLAG_PV, false); }
 
 void Z80::OP_PUSH_BC() { PUSH_rr(&BC); }
 
@@ -700,8 +722,8 @@ void Z80::OP_CB_Prefix()
     uint8_t cb_opcode = m_memory->Read(PC++);
 
     // decode using bit pattern
-    uint8_t reg = cb_opcode & 0x07;     // bit 0-2 registro
-    uint8_t operation = cb_opcode >> 3; // bit 3-7: operazione
+    uint8_t reg = cb_opcode & 0x07;            // bit 0-2 registro
+    uint8_t operation = (cb_opcode >> 3) & 0x07; // bit 3-5: operazione/numero di bit (0-7)
 
     // Dispatch basato su operation
     if (cb_opcode < 0x40) {
@@ -765,6 +787,65 @@ void Z80::OP_ED_Prefix()
     // Caso speciale per NEG (0x44)
     if (ed_opcode == 0x44) {
         NEG();
+        return;
+    }
+
+    // LD A, R (0x5F)
+    if (ed_opcode == 0x5F) {
+        A = R;
+
+        // LD A, R modifica i flag Z e S
+        SetFlag(FLAG_Z, A == 0);
+        SetFlag(FLAG_S, (A & 0x80) != 0);
+        SetFlag(FLAG_H, false);
+        SetFlag(FLAG_N, false);
+        // PV copia l'interrupt flip-flop (IFF2), qui semplifichiamo
+        SetFlag(FLAG_PV, m_interruptsEnabled);
+
+        m_cyclesLastInstruction = 9;
+        return;
+    }
+
+    // LD R, A (0x4F)
+    if (ed_opcode == 0x4F) {
+        R = A;
+        m_cyclesLastInstruction = 9;
+        return;
+    }
+
+    // RLD (0x6F) / RRD (0x67)
+    if (ed_opcode == 0x6F) {
+        uint8_t m = m_memory->Read(HL.pair);
+        uint8_t a = A;
+        uint8_t new_m = static_cast<uint8_t>((m << 4) | (a & 0x0F));
+        uint8_t new_a = static_cast<uint8_t>((a & 0xF0) | (m >> 4));
+        m_memory->Write(HL.pair, new_m);
+        A = new_a;
+
+        SetFlag(FLAG_S, (A & 0x80) != 0);
+        SetFlag(FLAG_Z, A == 0);
+        SetFlag(FLAG_H, false);
+        SetFlag(FLAG_PV, CalculateParity(A));
+        SetFlag(FLAG_N, false);
+
+        m_cyclesLastInstruction = 18;
+        return;
+    }
+    if (ed_opcode == 0x67) {
+        uint8_t m = m_memory->Read(HL.pair);
+        uint8_t a = A;
+        uint8_t new_m = static_cast<uint8_t>((a << 4) | (m >> 4));
+        uint8_t new_a = static_cast<uint8_t>((a & 0xF0) | (m & 0x0F));
+        m_memory->Write(HL.pair, new_m);
+        A = new_a;
+
+        SetFlag(FLAG_S, (A & 0x80) != 0);
+        SetFlag(FLAG_Z, A == 0);
+        SetFlag(FLAG_H, false);
+        SetFlag(FLAG_PV, CalculateParity(A));
+        SetFlag(FLAG_N, false);
+
+        m_cyclesLastInstruction = 18;
         return;
     }
 
@@ -881,6 +962,57 @@ void Z80::OP_DD_Prefix()
         m_cyclesLastInstruction = 15;
         break;
     }
+    case 0x24: { INC_r(*(reinterpret_cast<uint8_t *>(&IX) + 1)); m_cyclesLastInstruction = 8; break; } // INC IXH
+    case 0x25: { DEC_r(*(reinterpret_cast<uint8_t *>(&IX) + 1)); m_cyclesLastInstruction = 8; break; } // DEC IXH
+    case 0x2C: { INC_r(*reinterpret_cast<uint8_t *>(&IX));       m_cyclesLastInstruction = 8; break; } // INC IXL
+    case 0x2D: { DEC_r(*reinterpret_cast<uint8_t *>(&IX));       m_cyclesLastInstruction = 8; break; } // DEC IXL
+    case 0x26: {
+        // LD IXH, n
+        *(reinterpret_cast<uint8_t *>(&IX) + 1) = m_memory->Read(PC++);
+        m_cyclesLastInstruction = 11;
+        break;
+    }
+    case 0x2E: {
+        // LD IXL, n
+        *reinterpret_cast<uint8_t *>(&IX) = m_memory->Read(PC++);
+        m_cyclesLastInstruction = 11;
+        break;
+    }
+    case 0x2A: {
+        // LD IX, (nnnn)
+        uint8_t low = m_memory->Read(PC++);
+        uint8_t high = m_memory->Read(PC++);
+        uint16_t address = (high << 8) | low;
+        IX = m_memory->Read(address) | (m_memory->Read(address + 1) << 8);
+        m_cyclesLastInstruction = 20;
+        break;
+    }
+    case 0x22: {
+        // LD (nnnn), IX
+        uint8_t low = m_memory->Read(PC++);
+        uint8_t high = m_memory->Read(PC++);
+        uint16_t address = (high << 8) | low;
+        m_memory->Write(address, IX & 0xFF);
+        m_memory->Write(address + 1, (IX >> 8) & 0xFF);
+        m_cyclesLastInstruction = 20;
+        break;
+    }
+    case 0x84: { ADD_A_r(*(reinterpret_cast<uint8_t *>(&IX) + 1)); m_cyclesLastInstruction = 8; break; } // ADD A,IXH
+    case 0x85: { ADD_A_r(*reinterpret_cast<uint8_t *>(&IX));       m_cyclesLastInstruction = 8; break; } // ADD A,IXL
+    case 0x8C: { ADC_A_r(*(reinterpret_cast<uint8_t *>(&IX) + 1)); m_cyclesLastInstruction = 8; break; } // ADC A,IXH
+    case 0x8D: { ADC_A_r(*reinterpret_cast<uint8_t *>(&IX));       m_cyclesLastInstruction = 8; break; } // ADC A,IXL
+    case 0x94: { SUB_A_r(*(reinterpret_cast<uint8_t *>(&IX) + 1)); m_cyclesLastInstruction = 8; break; } // SUB IXH
+    case 0x95: { SUB_A_r(*reinterpret_cast<uint8_t *>(&IX));       m_cyclesLastInstruction = 8; break; } // SUB IXL
+    case 0x9C: { SBC_A_r(*(reinterpret_cast<uint8_t *>(&IX) + 1)); m_cyclesLastInstruction = 8; break; } // SBC A,IXH
+    case 0x9D: { SBC_A_r(*reinterpret_cast<uint8_t *>(&IX));       m_cyclesLastInstruction = 8; break; } // SBC A,IXL
+    case 0xA4: { AND_A_r(*(reinterpret_cast<uint8_t *>(&IX) + 1)); m_cyclesLastInstruction = 8; break; } // AND IXH
+    case 0xA5: { AND_A_r(*reinterpret_cast<uint8_t *>(&IX));       m_cyclesLastInstruction = 8; break; } // AND IXL
+    case 0xAC: { XOR_A_r(*(reinterpret_cast<uint8_t *>(&IX) + 1)); m_cyclesLastInstruction = 8; break; } // XOR IXH
+    case 0xAD: { XOR_A_r(*reinterpret_cast<uint8_t *>(&IX));       m_cyclesLastInstruction = 8; break; } // XOR IXL
+    case 0xB4: { OR_A_r(*(reinterpret_cast<uint8_t *>(&IX) + 1));  m_cyclesLastInstruction = 8; break; } // OR IXH
+    case 0xB5: { OR_A_r(*reinterpret_cast<uint8_t *>(&IX));        m_cyclesLastInstruction = 8; break; } // OR IXL
+    case 0xBC: { CP_A_r(*(reinterpret_cast<uint8_t *>(&IX) + 1));  m_cyclesLastInstruction = 8; break; } // CP IXH
+    case 0xBD: { CP_A_r(*reinterpret_cast<uint8_t *>(&IX));        m_cyclesLastInstruction = 8; break; } // CP IXL
     case 0x6E: {
         // LD L, (IX+d)
         LD_r_pIXOffset(HL.low);
@@ -954,6 +1086,20 @@ void Z80::OP_DD_Prefix()
     case 0x4E: {
         // LD C, (IX+d)
         LD_r_pIXOffset(BC.low);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+
+    case 0x56: {
+        // LD D, (IX+d)
+        LD_r_pIXOffset(DE.high);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+
+    case 0x5E: {
+        // LD E, (IX+d)
+        LD_r_pIXOffset(DE.low);
         m_cyclesLastInstruction = 19;
         break;
     }
@@ -1050,7 +1196,44 @@ void Z80::OP_DD_Prefix()
         break;
     }
 
+    case 0x9E: {
+        // SBC A, (IX+d)
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint8_t value = m_memory->Read(IX + offset);
+        SBC_A_r(value);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+
+    case 0xE9: {
+        // JP (IX) - PC = IX (nessuna lettura in memoria, nonostante le parentesi)
+        PC = IX;
+        m_cyclesLastInstruction = 8;
+        break;
+    }
+
     default: {
+        // LD r,r' puro (nessuno dei due operandi e' (IX+d)), con IXH/IXL al
+        // posto di H/L: copre il resto del blocco 0x40-0x7F non gia' gestito
+        // esplicitamente sopra (quelle forme usano invece H/L reali).
+        if (dd_opcode >= 0x40 && dd_opcode <= 0x7F && dd_opcode != 0x76) {
+            uint8_t dest = (dd_opcode & 0x38) >> 3;
+            uint8_t src = dd_opcode & 0x07;
+
+            if (dest != 6 && src != 6) {
+                uint8_t *ixHigh = reinterpret_cast<uint8_t *>(&IX) + 1;
+                uint8_t *ixLow = reinterpret_cast<uint8_t *>(&IX);
+                uint8_t *regs[8] = {
+                    &BC.high, &BC.low, &DE.high, &DE.low,
+                    ixHigh, ixLow, nullptr, &A
+                };
+
+                *regs[dest] = *regs[src];
+                m_cyclesLastInstruction = 8;
+                break;
+            }
+        }
+
         std::cerr << "Unimplemented DD opcode: 0x" << std::hex
             << std::setfill('0') << std::setw(2)
             << (int)dd_opcode << std::dec
@@ -1126,6 +1309,57 @@ void Z80::OP_FD_Prefix()
         m_cyclesLastInstruction = 10;
         break;
     }
+    case 0x24: { INC_r(*(reinterpret_cast<uint8_t *>(&IY) + 1)); m_cyclesLastInstruction = 8; break; } // INC IYH
+    case 0x25: { DEC_r(*(reinterpret_cast<uint8_t *>(&IY) + 1)); m_cyclesLastInstruction = 8; break; } // DEC IYH
+    case 0x2C: { INC_r(*reinterpret_cast<uint8_t *>(&IY));       m_cyclesLastInstruction = 8; break; } // INC IYL
+    case 0x2D: { DEC_r(*reinterpret_cast<uint8_t *>(&IY));       m_cyclesLastInstruction = 8; break; } // DEC IYL
+    case 0x26: {
+        // LD IYH, n
+        *(reinterpret_cast<uint8_t *>(&IY) + 1) = m_memory->Read(PC++);
+        m_cyclesLastInstruction = 11;
+        break;
+    }
+    case 0x2E: {
+        // LD IYL, n
+        *reinterpret_cast<uint8_t *>(&IY) = m_memory->Read(PC++);
+        m_cyclesLastInstruction = 11;
+        break;
+    }
+    case 0x2A: {
+        // LD IY, (nnnn)
+        uint8_t low = m_memory->Read(PC++);
+        uint8_t high = m_memory->Read(PC++);
+        uint16_t address = (high << 8) | low;
+        IY = m_memory->Read(address) | (m_memory->Read(address + 1) << 8);
+        m_cyclesLastInstruction = 20;
+        break;
+    }
+    case 0x22: {
+        // LD (nnnn), IY
+        uint8_t low = m_memory->Read(PC++);
+        uint8_t high = m_memory->Read(PC++);
+        uint16_t address = (high << 8) | low;
+        m_memory->Write(address, IY & 0xFF);
+        m_memory->Write(address + 1, (IY >> 8) & 0xFF);
+        m_cyclesLastInstruction = 20;
+        break;
+    }
+    case 0x84: { ADD_A_r(*(reinterpret_cast<uint8_t *>(&IY) + 1)); m_cyclesLastInstruction = 8; break; } // ADD A,IYH
+    case 0x85: { ADD_A_r(*reinterpret_cast<uint8_t *>(&IY));       m_cyclesLastInstruction = 8; break; } // ADD A,IYL
+    case 0x8C: { ADC_A_r(*(reinterpret_cast<uint8_t *>(&IY) + 1)); m_cyclesLastInstruction = 8; break; } // ADC A,IYH
+    case 0x8D: { ADC_A_r(*reinterpret_cast<uint8_t *>(&IY));       m_cyclesLastInstruction = 8; break; } // ADC A,IYL
+    case 0x94: { SUB_A_r(*(reinterpret_cast<uint8_t *>(&IY) + 1)); m_cyclesLastInstruction = 8; break; } // SUB IYH
+    case 0x95: { SUB_A_r(*reinterpret_cast<uint8_t *>(&IY));       m_cyclesLastInstruction = 8; break; } // SUB IYL
+    case 0x9C: { SBC_A_r(*(reinterpret_cast<uint8_t *>(&IY) + 1)); m_cyclesLastInstruction = 8; break; } // SBC A,IYH
+    case 0x9D: { SBC_A_r(*reinterpret_cast<uint8_t *>(&IY));       m_cyclesLastInstruction = 8; break; } // SBC A,IYL
+    case 0xA4: { AND_A_r(*(reinterpret_cast<uint8_t *>(&IY) + 1)); m_cyclesLastInstruction = 8; break; } // AND IYH
+    case 0xA5: { AND_A_r(*reinterpret_cast<uint8_t *>(&IY));       m_cyclesLastInstruction = 8; break; } // AND IYL
+    case 0xAC: { XOR_A_r(*(reinterpret_cast<uint8_t *>(&IY) + 1)); m_cyclesLastInstruction = 8; break; } // XOR IYH
+    case 0xAD: { XOR_A_r(*reinterpret_cast<uint8_t *>(&IY));       m_cyclesLastInstruction = 8; break; } // XOR IYL
+    case 0xB4: { OR_A_r(*(reinterpret_cast<uint8_t *>(&IY) + 1));  m_cyclesLastInstruction = 8; break; } // OR IYH
+    case 0xB5: { OR_A_r(*reinterpret_cast<uint8_t *>(&IY));        m_cyclesLastInstruction = 8; break; } // OR IYL
+    case 0xBC: { CP_A_r(*(reinterpret_cast<uint8_t *>(&IY) + 1));  m_cyclesLastInstruction = 8; break; } // CP IYH
+    case 0xBD: { CP_A_r(*reinterpret_cast<uint8_t *>(&IY));        m_cyclesLastInstruction = 8; break; } // CP IYL
     case 0x09: {
         // ADD IY,BC
         ADD_IY_rr(BC.pair);
@@ -1158,6 +1392,30 @@ void Z80::OP_FD_Prefix()
         // PUSH IY
         PUSH_16bit(IY);
         m_cyclesLastInstruction = 15;
+        break;
+    }
+    case 0x70: {
+        // LD (IY+d), B
+        LD_pIYOffset_r(BC.high);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x71: {
+        // LD (IY+d), C
+        LD_pIYOffset_r(BC.low);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x72: {
+        // LD (IY+d), D
+        LD_pIYOffset_r(DE.high);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+    case 0x73: {
+        // LD (IY+d), E
+        LD_pIYOffset_r(DE.low);
+        m_cyclesLastInstruction = 19;
         break;
     }
     case 0x74: {
@@ -1208,6 +1466,24 @@ void Z80::OP_FD_Prefix()
         int8_t offset = (int8_t)m_memory->Read(PC++);
         uint8_t value = m_memory->Read(IY + offset);
         SUB_A_r(value);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+
+    case 0x8E: {
+        // ADC A, (IY+d)
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint8_t value = m_memory->Read(IY + offset);
+        ADC_A_r(value);
+        m_cyclesLastInstruction = 19;
+        break;
+    }
+
+    case 0x9E: {
+        // SBC A, (IY+d)
+        int8_t offset = (int8_t)m_memory->Read(PC++);
+        uint8_t value = m_memory->Read(IY + offset);
+        SBC_A_r(value);
         m_cyclesLastInstruction = 19;
         break;
     }
@@ -1306,9 +1582,22 @@ void Z80::OP_FD_Prefix()
         // Qui replichiamo la logica base per IY.
 
         if (cb_opcode < 0x40) {
-            // Rotate/Shift
-             // TODO: Implementare se serve (raro in PacMan su IY)
-             // HandleRotateShift_pIYOffset(operation, offset); 
+            // Rotate/Shift su (IY+d)
+            uint16_t address = IY + offset;
+            uint8_t value = m_memory->Read(address);
+
+            switch (operation) {
+            case 0: CB_RLC(value); break;
+            case 1: CB_RRC(value); break;
+            case 2: CB_RL(value); break;
+            case 3: CB_RR(value); break;
+            case 4: CB_SLA(value); break;
+            case 5: CB_SRA(value); break;
+            case 6: CB_SWAP(value); break; // SLL non documentata
+            case 7: CB_SRL(value); break;
+            }
+
+            m_memory->Write(address, value);
             m_cyclesLastInstruction = 23;
         }
         else if (cb_opcode < 0x80) {
@@ -1341,6 +1630,27 @@ void Z80::OP_FD_Prefix()
         break;
     }
     default: {
+        // LD r,r' puro (nessuno dei due operandi e' (IY+d)), con IYH/IYL al
+        // posto di H/L: copre il resto del blocco 0x40-0x7F non gia' gestito
+        // esplicitamente sopra (quelle forme usano invece H/L reali).
+        if (fd_opcode >= 0x40 && fd_opcode <= 0x7F && fd_opcode != 0x76) {
+            uint8_t dest = (fd_opcode & 0x38) >> 3;
+            uint8_t src = fd_opcode & 0x07;
+
+            if (dest != 6 && src != 6) {
+                uint8_t *iyHigh = reinterpret_cast<uint8_t *>(&IY) + 1;
+                uint8_t *iyLow = reinterpret_cast<uint8_t *>(&IY);
+                uint8_t *regs[8] = {
+                    &BC.high, &BC.low, &DE.high, &DE.low,
+                    iyHigh, iyLow, nullptr, &A
+                };
+
+                *regs[dest] = *regs[src];
+                m_cyclesLastInstruction = 8;
+                break;
+            }
+        }
+
         std::cerr << "Unimplemented FD opcode: 0x" << std::hex
             << std::setfill('0') << std::setw(2)
             << (int)fd_opcode << std::dec
@@ -1547,6 +1857,52 @@ void Z80::OP_JP_M_nn()
     m_cyclesLastInstruction = 10;
 }
 
+void Z80::OP_RET_M()
+{
+    // Ritorna se il flag Sign (S) è true
+    RET_conditional(FLAG_S, true);
+}
+
+void Z80::OP_RET_P()
+{
+    RET_conditional(FLAG_S, false);
+}
+
+void Z80::OP_DAA()
+{
+    uint8_t a = A;
+    bool cf = GetFlag(FLAG_C);
+    bool hf = GetFlag(FLAG_H);
+    bool nf = GetFlag(FLAG_N);
+
+    uint8_t diff;
+    if (cf) {
+        diff = (((a & 0x0F) > 0x09) || hf) ? 0x66 : 0x60;
+    }
+    else {
+        if (((a & 0x0F) > 0x09) || hf) {
+            diff = (a > 0x99) ? 0x66 : 0x06;
+        }
+        else {
+            diff = (a > 0x99) ? 0x60 : 0x00;
+        }
+    }
+
+    bool newC = cf || (a > 0x99);
+    bool newH = nf ? (hf && ((a & 0x0F) < 0x06)) : ((a & 0x0F) > 0x09);
+
+    A = nf ? (a - diff) : (a + diff);
+
+    SetFlag(FLAG_C, newC);
+    SetFlag(FLAG_H, newH);
+    SetFlag(FLAG_Z, A == 0);
+    SetFlag(FLAG_S, (A & 0x80) != 0);
+    SetFlag(FLAG_PV, CalculateParity(A));
+    // N non cambia
+
+    m_cyclesLastInstruction = 4;
+}
+
 void Z80::OP_CCF()
 {
     // Preserva il vecchio carry per H flag
@@ -1632,6 +1988,13 @@ void Z80::OP_EXX() {
     std::swap(DE, DE_alt);
     std::swap(HL, HL_alt);
 
+    m_cyclesLastInstruction = 4;
+}
+
+void Z80::OP_EX_AF_AF() {
+    // Scambia AF con AF' (usata spesso come "registro di scratch"
+    // per generatori di numeri pseudo-casuali, es. logica fantasmi)
+    ExchangeAF();
     m_cyclesLastInstruction = 4;
 }
 
@@ -2018,7 +2381,7 @@ void Z80::ADC_A_r(uint8_t value)
     A = result & 0xFF;
 
     SetFlag(FLAG_C, result > 0xFF);
-    SetFlag(FLAG_Z, result == 0x00);
+    SetFlag(FLAG_Z, A == 0x00);
     SetFlag(FLAG_S, (A & 0x80) != 0);
 
     // Half-carry: considera anche il carry
@@ -2041,7 +2404,7 @@ void Z80::SBC_A_r(uint8_t value)
 
     A = result & 0xFF;
     SetFlag(FLAG_C, oldA < (value + carry));
-    SetFlag(FLAG_Z, result == 0);
+    SetFlag(FLAG_Z, A == 0x00);
     SetFlag(FLAG_S, (A & 0x80) != 0);
 
     // Half-carry: considera anche il carry
@@ -2173,9 +2536,21 @@ void Z80::HandleSet(uint8_t bit_number, uint8_t reg)
 
 void Z80::HandleRotateShift_pIXOffset(uint8_t operation, int8_t offset)
 {
-    std::cerr << "HandleRotateShift_pIXOffset called: operation=0x"
-        << std::hex << (int)operation << " offset=" << (int)offset << std::dec << "\n";
-    // TODO: Implementare rotate/shift su (IX+d)
+    uint16_t address = IX + offset;
+    uint8_t value = m_memory->Read(address);
+
+    switch (operation) {
+    case 0: CB_RLC(value); break;
+    case 1: CB_RRC(value); break;
+    case 2: CB_RL(value); break;
+    case 3: CB_RR(value); break;
+    case 4: CB_SLA(value); break;
+    case 5: CB_SRA(value); break;
+    case 6: CB_SWAP(value); break; // SLL non documentata
+    case 7: CB_SRL(value); break;
+    }
+
+    m_memory->Write(address, value);
     m_cyclesLastInstruction = 23;
 }
 
@@ -2203,17 +2578,19 @@ void Z80::HandleBit_pIXOffset(uint8_t bit_number, int8_t offset)
 
 void Z80::HandleRes_pIXOffset(uint8_t operation, int8_t offset)
 {
-    std::cerr << "HandleRes_pIXOffset called: operation=0x"
-        << std::hex << (int)operation << " offset=" << (int)offset << std::dec << "\n";
-    // TODO: Implementare RES su (IX+d)
+    uint16_t address = IX + offset;
+    uint8_t value = m_memory->Read(address);
+    value &= ~(1 << operation);
+    m_memory->Write(address, value);
     m_cyclesLastInstruction = 23;
 }
 
 void Z80::HandleSet_pIXOffset(uint8_t operation, int8_t offset)
 {
-    std::cerr << "HandleSet_pIXOffset called: operation=0x"
-        << std::hex << (int)operation << " offset=" << (int)offset << std::dec << "\n";
-    // TODO: Implementare SET su (IX+d)
+    uint16_t address = IX + offset;
+    uint8_t value = m_memory->Read(address);
+    value |= (1 << operation);
+    m_memory->Write(address, value);
     m_cyclesLastInstruction = 23;
 }
 
@@ -2300,14 +2677,18 @@ void Z80::CB_SRA(uint8_t &reg)
 
 void Z80::CB_SWAP(uint8_t &reg)
 {
-    reg = ((reg & 0x0F) << 4) | ((reg & 0xF0) >> 4);
+    // Nello Z80 reale lo slot CB 0x30-0x37 non e' uno "swap nibble" (quello
+    // e' lo Sharp LR35902 del Game Boy): e' SLL, l'istruzione non documentata
+    // che fa uno shift a sinistra inserendo 1 nel bit 0.
+    uint8_t bit7 = (reg & 0x80) >> 7;
+    reg = (reg << 1) | 0x01;
 
     SetFlag(FLAG_Z, reg == 0);
     SetFlag(FLAG_S, (reg & 0x80) != 0);
     SetFlag(FLAG_H, false);
     SetFlag(FLAG_PV, CalculateParity(reg));
     SetFlag(FLAG_N, false);
-    SetFlag(FLAG_C, false);
+    SetFlag(FLAG_C, bit7 != 0);
 }
 
 void Z80::CB_SRL(uint8_t &reg)
@@ -2327,16 +2708,17 @@ void Z80::SBC_HL(const uint16_t *reg)
 {
     uint8_t oldCarry = GetFlag(FLAG_C) ? 1 : 0;
     uint16_t oldHL = HL.pair;
+    uint16_t oldReg = *reg;  // catturato PRIMA di scrivere HL.pair (reg puo' alias-are HL, es. SBC HL,HL)
 
-    int32_t result = (int32_t)HL.pair - (int32_t)*reg - oldCarry;
+    int32_t result = (int32_t)HL.pair - (int32_t)oldReg - oldCarry;
 
     HL.pair = result & 0xFFFF;
 
     SetFlag(FLAG_Z, HL.pair == 0x0000);
     SetFlag(FLAG_S, (HL.pair & 0x8000) != 0);
-    SetFlag(FLAG_H, ((oldHL & 0x0FFF) - (*reg & 0x0FFF) - oldCarry) < 0);
+    SetFlag(FLAG_H, ((oldHL & 0x0FFF) - (oldReg & 0x0FFF) - oldCarry) < 0);
 
-    bool overflow = ((oldHL & 0x8000) != (*reg & 0x8000)) &&
+    bool overflow = ((oldHL & 0x8000) != (oldReg & 0x8000)) &&
                     ((oldHL & 0x8000) != (HL.pair & 0x8000));
     SetFlag(FLAG_PV, overflow);
     SetFlag(FLAG_N, true);
@@ -2366,15 +2748,16 @@ void Z80::ADC_HL(const uint16_t *reg)
     uint8_t oldCarry = GetFlag(FLAG_C) ? 1 : 0;
 
     uint16_t oldHL = HL.pair;
-    uint32_t result = HL.pair + *reg + oldCarry;
+    uint16_t oldReg = *reg;  // catturato PRIMA di scrivere HL.pair (reg puo' alias-are HL, es. ADC HL,HL)
+    uint32_t result = (uint32_t)HL.pair + oldReg + oldCarry;
 
     HL.pair = result & 0xFFFF;
 
     SetFlag(FLAG_Z, HL.pair == 0x0000);
     SetFlag(FLAG_S, (HL.pair & 0x8000) != 0);
-    SetFlag(FLAG_H, ((oldHL & 0x0FFF) + (*reg & 0x0FFF) + oldCarry) > 0x0FFF);
+    SetFlag(FLAG_H, ((oldHL & 0x0FFF) + (oldReg & 0x0FFF) + oldCarry) > 0x0FFF);
 
-    bool overflow = ((oldHL & 0x8000) == (*reg & 0x8000)) && 
+    bool overflow = ((oldHL & 0x8000) == (oldReg & 0x8000)) &&
                     ((oldHL & 0x8000) != (HL.pair & 0x8000));
     SetFlag(FLAG_PV, overflow);
     SetFlag(FLAG_N, false);
@@ -2611,6 +2994,7 @@ void Z80::AND_r_pIXOffset(uint8_t &reg)
     SetFlag(FLAG_H, true);
     SetFlag(FLAG_PV, CalculateParity(reg));  // Parità
     SetFlag(FLAG_N, false);
+    SetFlag(FLAG_C, false);
 }
 
 void Z80::ADD_r_pIXOffset()
@@ -2736,8 +3120,11 @@ int Z80::Step()
     if (m_halted) {
         m_cyclesLastInstruction = 4;
         m_totalCycles += 4;
+        R++;
         return 4; // Consuma comunque cicli
     }
+
+    R++;
 
     uint8_t opcode = m_memory->Read(PC++);
     //printf("DEBUG: Executing opcode 0x%02X at PC 0x%04X\n", opcode, PC - 1);

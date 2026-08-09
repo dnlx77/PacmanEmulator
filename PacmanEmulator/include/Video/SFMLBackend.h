@@ -20,6 +20,7 @@ public:
 		int offsetX = 0, int offsetY = 0) override;
 	void Present() override;
 	bool IsKeyPressed(KeyCode key) override;
+	bool PollEvents() override;
 	void Shutdown() override;
 	std::pair<int, int> GetWindowSize() const override;
 	std::string GetBackendName() const override;

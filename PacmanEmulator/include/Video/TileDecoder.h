@@ -7,7 +7,11 @@ class TileDecoder {
 public:
 	TileDecoder(const MemoryBus &memory);
 
-	std::array<uint32_t, 64> DecodeTile(uint8_t tile_index, uint8_t palette_offset);
+	std::array<uint32_t, 64> DecodeTile(uint16_t tile_index, uint8_t palette_offset);
+
+	// Decodifica uno sprite 16x16 (sprite_index 0-63) usando la stessa
+	// formula (xoffset/yoffset) del driver Pac-Man di MAME.
+	std::array<uint32_t, 256> DecodeSprite(uint16_t sprite_index, uint8_t palette_offset);
 private:
 	const MemoryBus &m_memory;
 	uint32_t ConvertPaletteByteToRGBA(uint8_t palette_byte);

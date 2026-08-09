@@ -43,9 +43,6 @@ private:
     std::unique_ptr<Z80> m_cpu;
     std::unique_ptr<VideoController> m_videoController;
 
-    // SFML
-    std::unique_ptr<sf::RenderWindow> m_window;
-
     // Render backend
     std::unique_ptr<RenderBackend> m_renderBackend;
 
@@ -62,7 +59,6 @@ private:
     // Metodi privati
     void ProcessInput();
     void Update(float deltaTime);
-    void Render();
 
     // Debug
     void DrawDebugInfo();

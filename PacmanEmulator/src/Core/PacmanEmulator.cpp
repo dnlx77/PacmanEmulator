@@ -1,10 +1,11 @@
 #include "Core/PacmanEmulator.h"
 #include "Memory/MemoryBus.h"
 #include <iostream>
+#include <chrono>
 
 PacmanEmulator::PacmanEmulator()
     : m_memory(nullptr), m_cpu(nullptr),
-    m_videoController(nullptr), m_window(nullptr),
+    m_videoController(nullptr),
     m_renderBackend(nullptr),
     m_isRunning(false), m_isPaused(false)
 {
@@ -19,14 +20,6 @@ PacmanEmulator::~PacmanEmulator()
 bool PacmanEmulator::Initialize()
 {
     std::cout << "PacmanEmulator: Inizializzazione..." << std::endl;
-
-    // Crea finestra SFML
-    // Pac-Man originale: 224x288 pixel, scala x3 per visibilità
-    m_window = std::make_unique<sf::RenderWindow>(
-        sf::VideoMode({ 224 * 3, 288 * 3 }),
-        "Pac-Man Emulator"
-    );
-    m_window->setFramerateLimit(60);
 
     // Inizializza MemoryBus
     m_memory = std::make_unique<MemoryBus>();
@@ -118,7 +111,7 @@ void PacmanEmulator::Run()
 
             // Esegui la CPU per i cicli necessari a disegnare una linea (~224 cicli)
             while (cycles_this_scanline < CYCLES_PER_SCANLINE) {
-                // La tua funzione Step() gestisce già internamente lo stato HALT
+                // La tua funzione Step() gestisce giï¿½ internamente lo stato HALT
                 // ritornando 4 cicli senza fare nulla, quindi possiamo chiamarla direttamente.
                 cycles_this_scanline += m_cpu->Step();
             }
@@ -133,7 +126,7 @@ void PacmanEmulator::Run()
         // --- RENDERING SPRITE ---
         // Una volta disegnato tutto lo sfondo, disegniamo sopra gli sprite (Pac-Man, fantasmi).
         // (Assicurati di aver aggiunto questo metodo in VideoController come discusso prima)
-        //m_videoController->RenderSprites();
+        m_videoController->RenderSprites();
 
         // --- INTERRUPT VBLANK ---
         // Scatta una volta per frame (60Hz).
@@ -159,12 +152,12 @@ void PacmanEmulator::Reset()
     std::cout << "PacmanEmulator: Reset" << std::endl;
 
     // TODO: Reset CPU
-    // m_cpu->Reset();
+    m_cpu->Reset();
 
     m_isPaused = false;
 }
 
-void PacmanEmulator::ProcessInput()
+/*void PacmanEmulator::ProcessInput()
 {
     while (std::optional<sf::Event> event = m_window->pollEvent())
     {
@@ -196,6 +189,57 @@ void PacmanEmulator::ProcessInput()
             }
         }
     }
+}*/
+void PacmanEmulator::ProcessInput()
+{
+    // Gestione eventi finestra (chiusura, ecc.)
+    if (m_renderBackend->PollEvents()) {
+        m_isRunning = false;
+    }
+
+    // --- GESTIONE CONTROLLI PAC-MAN (Active Low) ---
+    // Default: Tutti i bit a 1 (Rilasciati)
+    uint8_t in0 = 0xFF;
+    uint8_t in1 = 0xFF;
+
+    // --- PORTA IN0 (0x5000) ---
+    // Bit 0: UP
+    // Bit 1: LEFT
+    // Bit 2: RIGHT
+    // Bit 3: DOWN
+    // Bit 4: RACK TEST
+    // Bit 5: COIN 1
+    // Bit 6: COIN 2
+    // Bit 7: CREDIT BUTTON
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))    in0 &= ~0x01; // Azzera bit 0
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))  in0 &= ~0x02; // Azzera bit 1
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) in0 &= ~0x04; // Azzera bit 2
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))  in0 &= ~0x08; // Azzera bit 3
+
+    // Tasto 5 per inserire COIN (Bit 5)
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num5))  in0 &= ~0x20;
+
+    // --- PORTA IN1 (0x5040) ---
+    // Bit 0-3: Controlli P2 (Cocktail)
+    // Bit 4: SERVICE
+    // Bit 5: START 1 PLAYER
+    // Bit 6: START 2 PLAYERS
+
+    // Tasto 1 per START 1P (Bit 5)
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Num1))  in1 &= ~0x20;
+
+    // Aggiorna il MemoryBus con i nuovi stati
+    m_memory->UpdateInputs(in0, in1);
+
+    // Gestione Pause/Reset (Funzioni emulatore)
+    static bool p_pressed = false;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::P)) {
+        if (!p_pressed) { m_isPaused = !m_isPaused; p_pressed = true; }
+    }
+    else { p_pressed = false; }
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape)) m_isRunning = false;
 }
 
 void PacmanEmulator::Update(float deltaTime)
@@ -210,24 +254,6 @@ void PacmanEmulator::Update(float deltaTime)
 
     // TODO: Aggiorna video
     // m_video->Update();
-}
-
-void PacmanEmulator::Render()
-{
-    m_window->clear(sf::Color::Black);
-
-    // TODO: Renderizza il gioco
-    // m_video->Render(*m_window);
-
-    // Per ora, disegna qualcosa di placeholder
-    sf::CircleShape testCircle(30.f);
-    testCircle.setFillColor(sf::Color::Yellow);
-    testCircle.setPosition({ 300.f, 400.f });
-    m_window->draw(testCircle);
-
-    DrawDebugInfo();
-
-    m_window->display();
 }
 
 void PacmanEmulator::DrawDebugInfo()

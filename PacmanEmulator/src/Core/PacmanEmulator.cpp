@@ -28,7 +28,7 @@ bool PacmanEmulator::Initialize()
     // Inizializza CPU Z80
     m_cpu = std::make_unique<Z80>(m_memory.get());
     m_cpu->Reset();
-    
+
     // Inizializza il video controller
     m_videoController = std::make_unique<VideoController>(*m_memory);
 

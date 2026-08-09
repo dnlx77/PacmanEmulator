@@ -91,7 +91,11 @@ std::array<uint32_t, 256> TileDecoder::DecodeSprite(uint16_t sprite_index, uint8
 
             uint8_t bit0 = getBit(planeoffset[0] + xoffset[x] + yoffset[y]);
             uint8_t bit1 = getBit(planeoffset[1] + xoffset[x] + yoffset[y]);
-            uint8_t pixel_value = (bit1 << 1) | bit0;
+            // La rotazione di correzione (x=oy, y=15-ox) applicata sopra scambia
+            // implicitamente i due bitplane: verificato confrontando pixel per
+            // pixel col vecchio decoder (colori corretti) che il valore giusto
+            // e' (bit0<<1)|bit1, non (bit1<<1)|bit0.
+            uint8_t pixel_value = (bit0 << 1) | bit1;
 
             uint8_t lookup_addr = (palette_offset << 2) | pixel_value;
             uint8_t color_index = paletteLookup[lookup_addr] & 0x0F;
